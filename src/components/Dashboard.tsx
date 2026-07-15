@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { Staff, Holiday, DayRota, RotaShift, CoverRecord, Role } from '../types';
+import { autoGeneratePattern } from '../utils/rotaEngine';
 
 interface DashboardProps {
   staffList: Staff[];
@@ -304,7 +305,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <button className="btn btn-secondary" onClick={onResetOverrides}>
                   🔄 Reset Overrides
                 </button>
+                <button
+                  className="btn btn-secondary no-print"
+                  onClick={() => window.print()}
+                >
+                  🖨 Print Rota
+                </button>
               </div>
+            </div>
+
+            {/* Print-only header — hidden on screen, visible when printing */}
+            <div className="print-only">
+              <h2 style={{ fontSize: '1.1rem', marginBottom: '0.25rem' }}>Eildon Care Home — Staff Rota</h2>
+              <p style={{ fontSize: '0.85rem', color: '#475569' }}>{weekLabel(selectedWeek)}</p>
             </div>
 
             {/* Week Selector Subbar */}
@@ -565,12 +578,26 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       <td>{staff.role}</td>
                       <td>{staff.contractedHours} hours</td>
                       <td>
-                        <span className={`status-indicator ${
-                          staff.shiftPreference === 'Night' ? 'shift-N' :
-                          staff.shiftPreference === 'Day' ? 'shift-E-L' : 'shift-7-5'
-                        }`} style={{ border: '1px solid var(--border-color)', fontWeight: 'bold' }}>
-                          {staff.shiftPreference || 'Mixed'}
-                        </span>
+                        {staff.role === 'Manager' ? (
+                          <span className={`status-indicator ${
+                            staff.shiftPreference === 'Night' ? 'shift-N' :
+                            staff.shiftPreference === 'Day' ? 'shift-E-L' : 'shift-7-5'
+                          }`} style={{ border: '1px solid var(--border-color)', fontWeight: 'bold' }}>
+                            {staff.shiftPreference || 'Mixed'}
+                          </span>
+                        ) : (
+                          <select
+                            className="select-control pref-select"
+                            value={staff.shiftPreference || 'Mixed'}
+                            onChange={(e) =>
+                              onUpdateStaff(staff.id, { shiftPreference: e.target.value as 'Day' | 'Night' | 'Mixed' })
+                            }
+                          >
+                            <option value="Mixed">Mixed</option>
+                            <option value="Day">Day Only</option>
+                            <option value="Night">Night Only</option>
+                          </select>
+                        )}
                       </td>
                       <td>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
@@ -1002,8 +1029,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
 
-              <div className="form-group" style={{ marginTop: '1rem' }}>
-                <label className="form-label">Default Shift Pattern - Week A (Days 1–7)</label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1.25rem', marginBottom: '0.5rem' }}>
+                <span className="form-label" style={{ margin: 0 }}>Default Shift Pattern</span>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ fontSize: '0.78rem', padding: '4px 12px' }}
+                  onClick={() => {
+                    const generated = autoGeneratePattern(newStaffRole, newStaffHours, newStaffPreference);
+                    setNewStaffPattern(generated);
+                  }}
+                >
+                  ✨ Auto-generate (Alt. Weekends)
+                </button>
+              </div>
+              <div className="form-group" style={{ marginTop: '0' }}>
+                <label className="form-label">Week A (Days 1–7)</label>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '0.25rem', marginTop: '0.25rem' }}>
                   {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((dayName, idx) => (
                     <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>

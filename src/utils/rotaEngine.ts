@@ -350,3 +350,63 @@ export function generateRota(
 
   return { rota: formattedRota, covers: coversList };
 }
+
+/**
+ * Auto-generate a 14-day default shift pattern with alternate weekends.
+ * Week A (days 0–6) includes the working weekend (Sat + Sun).
+ * Week B (days 7–13) has weekdays only — the "off weekend" fortnight.
+ */
+export function autoGeneratePattern(
+  role: Role,
+  contractedHours: number,
+  preference: 'Day' | 'Night' | 'Mixed'
+): Record<number, string> {
+  const pattern: Record<number, string> = {};
+
+  // Determine the appropriate shift label for this role / preference
+  const getShift = (isNight: boolean): string => {
+    if (role === 'Manager') return '7/5';
+    if (role === 'Activities') return '8/5.30';
+    if (role === 'Kitchen') return '8/5.3';
+    if (role === 'Domestic/Laundry') return '12/6';
+    return isNight ? 'N' : 'E/L';
+  };
+
+  // Fixed Mon–Fri roles (no weekend working, no alternate-weekend logic needed)
+  if (['Manager', 'Activities', 'Kitchen', 'Domestic/Laundry'].includes(role)) {
+    const shift = getShift(false);
+    [0, 1, 2, 3, 4].forEach((d) => (pattern[d] = shift));   // Week A Mon–Fri
+    [7, 8, 9, 10, 11].forEach((d) => (pattern[d] = shift)); // Week B Mon–Fri
+    return pattern;
+  }
+
+  // Care roles (Carer, Shift Leader, Staff Nurse, Bank):
+  // Calculate how many 11-hour shifts fit the contracted hours across 14 days
+  const shiftHours = 11;
+  const totalShifts = Math.round((contractedHours * 2) / shiftHours);
+
+  // Week A gets ≥ Week B so the extra shift falls on the working-weekend week
+  const weekACount = Math.ceil(totalShifts / 2);
+  const weekBCount = Math.floor(totalShifts / 2);
+
+  // Week A fill order: Sat(5), Sun(6) first, then Mon–Fri
+  const weekAOrder = [5, 6, 0, 1, 2, 3, 4];
+  // Week B fill order: Mon–Fri only (no weekend)
+  const weekBOrder = [7, 8, 9, 10, 11];
+
+  const shiftForDay = (dayIndex: number, weekAB: 'A' | 'B'): string => {
+    if (preference === 'Night') return getShift(true);
+    if (preference === 'Day') return getShift(false);
+    // Mixed: Day shifts in Week A, Night shifts in Week B
+    return weekAB === 'A' ? getShift(false) : getShift(true);
+  };
+
+  weekAOrder.slice(0, weekACount).forEach((d) => {
+    pattern[d] = shiftForDay(d, 'A');
+  });
+  weekBOrder.slice(0, weekBCount).forEach((d) => {
+    pattern[d] = shiftForDay(d, 'B');
+  });
+
+  return pattern;
+}
