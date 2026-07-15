@@ -53,6 +53,10 @@ const App: React.FC = () => {
     setStaffList((prev) => prev.filter((s) => s.id !== id));
   };
 
+  const handleUpdateStaff = (id: string, updates: Partial<Omit<Staff, 'id'>>) => {
+    setStaffList((prev) => prev.map((s) => (s.id === id ? { ...s, ...updates } : s)));
+  };
+
   // Override handlers
   const handleApplyOverride = (date: string, staffId: string, override: RotaShift | null) => {
     setManualOverrides((prev) => {
@@ -87,6 +91,7 @@ const App: React.FC = () => {
       onRemoveHoliday={handleRemoveHoliday}
       onAddStaff={handleAddStaff}
       onRemoveStaff={handleRemoveStaff}
+      onUpdateStaff={handleUpdateStaff}
       onApplyOverride={handleApplyOverride}
       onResetOverrides={handleResetOverrides}
     />

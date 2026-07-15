@@ -2,55 +2,55 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
 
 :root {
-  /* Color Palette - Sleek Dark Theme */
-  --bg-primary: #030712;
-  --bg-secondary: #0b0f19;
-  --bg-tertiary: #111827;
-  --bg-card: rgba(17, 24, 39, 0.7);
-  --border-color: rgba(255, 255, 255, 0.08);
-  --border-color-hover: rgba(255, 255, 255, 0.15);
-  
-  --text-primary: #f3f4f6;
-  --text-secondary: #9ca3af;
-  --text-muted: #6b7280;
+  /* Color Palette — Clean Professional Light Theme */
+  --bg-primary: #f4f6fb;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #eef1f8;
+  --bg-card: rgba(255, 255, 255, 0.97);
+  --border-color: rgba(15, 23, 42, 0.09);
+  --border-color-hover: rgba(15, 23, 42, 0.18);
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
 
   /* Accent Colors */
   --primary: #6366f1; /* Indigo */
-  --primary-glow: rgba(99, 102, 241, 0.15);
-  --accent: #06b6d4; /* Cyan */
-  --success: #10b981; /* Emerald */
-  --warning: #f59e0b; /* Amber */
-  --danger: #ef4444; /* Rose */
-  --purple: #8b5cf6; /* Violet */
+  --primary-glow: rgba(99, 102, 241, 0.12);
+  --accent: #0284c7; /* Sky-blue — readable on white */
+  --success: #059669; /* Emerald */
+  --warning: #d97706; /* Amber */
+  --danger: #dc2626; /* Red */
+  --purple: #7c3aed; /* Violet */
 
-  /* Shift Type Colors */
-  --shift-day: #eab308; /* Yellow */
-  --shift-day-bg: rgba(234, 179, 8, 0.1);
-  --shift-day-border: rgba(234, 179, 8, 0.3);
-  
-  --shift-night: #3b82f6; /* Blue */
-  --shift-night-bg: rgba(59, 130, 246, 0.1);
-  --shift-night-border: rgba(59, 130, 246, 0.3);
-  
-  --shift-mgmt: #a855f7; /* Purple */
-  --shift-mgmt-bg: rgba(168, 85, 247, 0.1);
-  --shift-mgmt-border: rgba(168, 85, 247, 0.3);
-  
-  --shift-kitchen: #f97316; /* Orange */
-  --shift-kitchen-bg: rgba(249, 115, 22, 0.1);
-  --shift-kitchen-border: rgba(249, 115, 22, 0.3);
-  
-  --shift-domestic: #14b8a6; /* Teal */
-  --shift-domestic-bg: rgba(20, 184, 166, 0.1);
-  --shift-domestic-border: rgba(20, 184, 166, 0.3);
+  /* Shift Type Colors — adjusted for light background */
+  --shift-day: #92400e;
+  --shift-day-bg: rgba(234, 179, 8, 0.13);
+  --shift-day-border: rgba(234, 179, 8, 0.40);
 
-  --shift-holiday: #ec4899; /* Pink */
-  --shift-holiday-bg: rgba(236, 72, 153, 0.1);
-  --shift-holiday-border: rgba(236, 72, 153, 0.3);
+  --shift-night: #1d4ed8;
+  --shift-night-bg: rgba(59, 130, 246, 0.10);
+  --shift-night-border: rgba(59, 130, 246, 0.30);
 
-  --shift-vacant: #ef4444; /* Red */
-  --shift-vacant-bg: rgba(239, 68, 68, 0.15);
-  --shift-vacant-border: rgba(239, 68, 68, 0.4);
+  --shift-mgmt: #6d28d9;
+  --shift-mgmt-bg: rgba(109, 40, 217, 0.10);
+  --shift-mgmt-border: rgba(109, 40, 217, 0.25);
+
+  --shift-kitchen: #c2410c;
+  --shift-kitchen-bg: rgba(249, 115, 22, 0.10);
+  --shift-kitchen-border: rgba(249, 115, 22, 0.30);
+
+  --shift-domestic: #0f766e;
+  --shift-domestic-bg: rgba(20, 184, 166, 0.10);
+  --shift-domestic-border: rgba(20, 184, 166, 0.30);
+
+  --shift-holiday: #be185d;
+  --shift-holiday-bg: rgba(236, 72, 153, 0.10);
+  --shift-holiday-border: rgba(236, 72, 153, 0.30);
+
+  --shift-vacant: #b91c1c;
+  --shift-vacant-bg: rgba(239, 68, 68, 0.10);
+  --shift-vacant-border: rgba(239, 68, 68, 0.35);
 
   /* Fonts */
   --font-header: 'Outfit', sans-serif;
@@ -60,9 +60,9 @@
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 18px;
-  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-  --glass-blur: blur(12px);
-  --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --glass-shadow: 0 2px 16px 0 rgba(15, 23, 42, 0.08), 0 1px 4px 0 rgba(15, 23, 42, 0.04);
+  --glass-blur: blur(0px);
+  --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Global Reset and Layout */
@@ -74,9 +74,9 @@
 
 body {
   background-color: var(--bg-primary);
-  background-image: 
-    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.05) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(6, 182, 212, 0.03) 0px, transparent 50%);
+  background-image:
+    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.04) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(2, 132, 199, 0.03) 0px, transparent 50%);
   color: var(--text-primary);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
@@ -108,9 +108,10 @@ button, input, select, textarea {
   justify-content: space-between;
   align-items: center;
   padding: 1.25rem 2rem;
-  background: rgba(11, 15, 25, 0.6);
-  backdrop-filter: var(--glass-blur);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border-color);
+  box-shadow: 0 1px 8px rgba(15, 23, 42, 0.06);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -140,9 +141,7 @@ button, input, select, textarea {
 .brand-title h1 {
   font-size: 1.25rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #ffffff, #9ca3af);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--text-primary);
 }
 
 .brand-title span {
@@ -156,7 +155,7 @@ button, input, select, textarea {
 .nav-tabs {
   display: flex;
   gap: 0.5rem;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--bg-tertiary);
   padding: 0.25rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
@@ -176,13 +175,13 @@ button, input, select, textarea {
 
 .tab-btn:hover {
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(99, 102, 241, 0.07);
 }
 
 .tab-btn.active {
   color: white;
   background: var(--primary);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.30);
 }
 
 /* Main Content Area */
@@ -197,7 +196,6 @@ button, input, select, textarea {
 /* Glass Card Component */
 .glass-card {
   background: var(--bg-card);
-  backdrop-filter: var(--glass-blur);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   padding: 1.5rem;
@@ -209,6 +207,7 @@ button, input, select, textarea {
 
 .glass-card:hover {
   border-color: var(--border-color-hover);
+  box-shadow: 0 4px 24px 0 rgba(15, 23, 42, 0.11);
 }
 
 .card-header-flex {
@@ -230,7 +229,7 @@ button, input, select, textarea {
 }
 
 .select-control, .input-control {
-  background: rgba(0, 0, 0, 0.3);
+  background: #ffffff;
   border: 1px solid var(--border-color);
   color: var(--text-primary);
   padding: 0.5rem 1rem;
@@ -242,7 +241,7 @@ button, input, select, textarea {
 
 .select-control:focus, .input-control:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px var(--primary-glow);
+  box-shadow: 0 0 0 3px var(--primary-glow);
 }
 
 /* Primary Action Buttons */
@@ -270,13 +269,14 @@ button, input, select, textarea {
 }
 
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.08);
+  background: #ffffff;
   color: var(--text-primary);
   border: 1px solid var(--border-color);
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--bg-tertiary);
+  border-color: var(--border-color-hover);
 }
 
 .btn-danger {
@@ -292,7 +292,7 @@ button, input, select, textarea {
   overflow-x: auto;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
-  background: rgba(0, 0, 0, 0.2);
+  background: #ffffff;
 }
 
 .rota-table {
@@ -303,7 +303,7 @@ button, input, select, textarea {
 }
 
 .rota-table th {
-  background: rgba(15, 23, 42, 0.8);
+  background: var(--bg-tertiary);
   padding: 0.75rem 1rem;
   font-weight: 600;
   font-size: 0.75rem;
@@ -322,7 +322,7 @@ button, input, select, textarea {
 }
 
 .staff-col {
-  background: rgba(11, 15, 25, 0.95);
+  background: var(--bg-secondary);
   font-weight: 600;
   position: sticky;
   left: 0;
@@ -358,8 +358,8 @@ button, input, select, textarea {
 
 .shift-cell-inner:hover {
   transform: translateY(-1px);
-  filter: brightness(1.15);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+  filter: brightness(0.95) saturate(1.2);
+  box-shadow: 0 4px 10px rgba(15,23,42,0.12);
 }
 
 /* Shift Type Colors */
@@ -456,13 +456,14 @@ button, input, select, textarea {
 }
 
 .stat-box {
-  background: rgba(11, 15, 25, 0.6);
+  background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.05);
 }
 
 .stat-label {
@@ -553,13 +554,13 @@ button, input, select, textarea {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  animation: fadeIn 0.25s ease-out;
+  animation: fadeIn 0.2s ease-out;
 }
 
 .modal-content {
@@ -597,6 +598,11 @@ button, input, select, textarea {
   padding: 0.75rem;
   text-align: left;
   border-bottom: 1px solid var(--border-color);
+}
+
+.table-simple tbody tr:hover {
+  background: var(--bg-tertiary);
+  transition: background 0.15s;
 }
 
 .table-simple th {
@@ -647,7 +653,7 @@ button, input, select, textarea {
 
 .week-btn-group {
   display: flex;
-  background: rgba(0,0,0,0.4);
+  background: var(--bg-tertiary);
   padding: 0.25rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-color);
@@ -690,3 +696,50 @@ button, input, select, textarea {
   height: 14px;
   border-radius: 3px;
 }
+
+/* Staff Manager — editable reference button */
+.staff-ref-btn {
+  background: none;
+  border: 1px dashed var(--border-color);
+  border-radius: 5px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  transition: var(--transition-smooth);
+}
+
+.staff-ref-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-glow);
+}
+
+/* Staff Manager — qualification checkbox rows */
+.qual-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: color 0.15s;
+}
+
+.qual-checkbox-label input[type='checkbox'] {
+  accent-color: var(--primary);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+.qual-checkbox-label:has(input:checked) {
+  color: var(--success);
+  font-weight: 600;
+}
+
+/* Status class modifiers on stat-box (compliance grid) */
+.stat-box.status-good  { border-left: 3px solid var(--success); }
+.stat-box.status-warning { border-left: 3px solid var(--warning); }
+.stat-box.status-danger  { border-left: 3px solid var(--danger); }

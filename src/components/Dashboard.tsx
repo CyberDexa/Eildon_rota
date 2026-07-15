@@ -12,6 +12,7 @@ interface DashboardProps {
   onRemoveStaff: (id: string) => void;
   onApplyOverride: (date: string, staffId: string, override: RotaShift | null) => void;
   onResetOverrides: () => void;
+  onUpdateStaff: (id: string, updates: Partial<Omit<Staff, 'id'>>) => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -25,6 +26,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onRemoveStaff,
   onApplyOverride,
   onResetOverrides,
+  onUpdateStaff,
 }) => {
   // Navigation Tabs
   const [activeTab, setActiveTab] = useState<'rota' | 'staff' | 'holidays' | 'stats'>('rota');
@@ -61,6 +63,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
   });
   const [newStaffLeaderQualified, setNewStaffLeaderQualified] = useState(false);
   const [newStaffKitchenQualified, setNewStaffKitchenQualified] = useState(false);
+  const [newStaffRef, setNewStaffRef] = useState('');
+
+  // Inline editing state for Staff Manager table
+  const [editingStaffRef, setEditingStaffRef] = useState<{ id: string; value: string } | null>(null);
 
   // Date ranges for weeks
   const weekStartDates = ['2026-07-20', '2026-07-27', '2026-08-03', '2026-08-10'];
@@ -155,8 +161,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
       isQualifiedForShiftLeader: newStaffLeaderQualified,
       isQualifiedForKitchen: newStaffKitchenQualified,
       shiftPreference: newStaffPreference,
+      staffRef: newStaffRef.trim() || undefined,
     });
     setNewStaffName('');
+    setNewStaffRef('');
     setNewStaffPreference('Mixed');
     setNewStaffPattern({
       0: '', 1: '', 2: '', 3: '', 4: '', 5: '', 6: '',
@@ -174,6 +182,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
       startDate: holidayStart,
       endDate: holidayEnd,
     });
+  };
+
+  // Staff Manager inline editing handlers
+  const handleSaveStaffRef = (staffId: string) => {
+    if (!editingStaffRef || editingStaffRef.id !== staffId) return;
+    onUpdateStaff(staffId, { staffRef: editingStaffRef.value.trim() || undefined });
+    setEditingStaffRef(null);
+  };
+
+  const handleToggleQualification = (
+    staffId: string,
+    qual: 'isQualifiedForShiftLeader' | 'isQualifiedForKitchen',
+    currentValue: boolean
+  ) => {
+    onUpdateStaff(staffId, { [qual]: !currentValue });
   };
 
   // Statistics calculations
@@ -491,6 +514,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <thead>
                   <tr>
                     <th>Name</th>
+                    <th>Ref #</th>
                     <th>Role</th>
                     <th>Contract Hours</th>
                     <th>Shift Preference</th>
@@ -502,6 +526,42 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   {sortedStaffList.map((staff) => (
                     <tr key={staff.id}>
                       <td style={{ fontWeight: 600 }}>{staff.name}</td>
+                      <td>
+                        {editingStaffRef?.id === staff.id ? (
+                          <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
+                            <input
+                              type="text"
+                              className="input-control"
+                              style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem', width: '90px' }}
+                              value={editingStaffRef.value}
+                              onChange={(e) => setEditingStaffRef({ id: staff.id, value: e.target.value })}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveStaffRef(staff.id);
+                                if (e.key === 'Escape') setEditingStaffRef(null);
+                              }}
+                              autoFocus
+                            />
+                            <button
+                              className="btn btn-primary"
+                              style={{ padding: '2px 8px', fontSize: '0.7rem' }}
+                              onClick={() => handleSaveStaffRef(staff.id)}
+                            >✓</button>
+                            <button
+                              className="btn btn-secondary"
+                              style={{ padding: '2px 8px', fontSize: '0.7rem' }}
+                              onClick={() => setEditingStaffRef(null)}
+                            >✕</button>
+                          </div>
+                        ) : (
+                          <button
+                            title="Click to edit reference"
+                            onClick={() => setEditingStaffRef({ id: staff.id, value: staff.staffRef || '' })}
+                            className="staff-ref-btn"
+                          >
+                            {staff.staffRef || '—'}
+                          </button>
+                        )}
+                      </td>
                       <td>{staff.role}</td>
                       <td>{staff.contractedHours} hours</td>
                       <td>
@@ -513,18 +573,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </span>
                       </td>
                       <td>
-                        <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
-                          {staff.isQualifiedForShiftLeader && (
-                            <span className="status-indicator status-indicator-green">
-                              SL Cover Qualified
-                            </span>
-                          )}
-                          {staff.isQualifiedForKitchen && (
-                            <span className="status-indicator status-indicator-green">
-                              Kitchen Cover Qualified
-                            </span>
-                          )}
-                          {!staff.isQualifiedForShiftLeader && !staff.isQualifiedForKitchen && '-'}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                          <label className="qual-checkbox-label">
+                            <input
+                              type="checkbox"
+                              checked={!!staff.isQualifiedForShiftLeader}
+                              onChange={() => handleToggleQualification(staff.id, 'isQualifiedForShiftLeader', !!staff.isQualifiedForShiftLeader)}
+                            />
+                            Shift Leader Cover
+                          </label>
+                          <label className="qual-checkbox-label">
+                            <input
+                              type="checkbox"
+                              checked={!!staff.isQualifiedForKitchen}
+                              onChange={() => handleToggleQualification(staff.id, 'isQualifiedForKitchen', !!staff.isQualifiedForKitchen)}
+                            />
+                            Kitchen Cover
+                          </label>
                         </div>
                       </td>
                       <td>
@@ -893,7 +958,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.75rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginTop: '0.75rem' }}>
                 <div className="form-group">
                   <label className="form-label">Contracted Weekly Hours</label>
                   <input
@@ -905,23 +970,33 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   />
                 </div>
                 <div className="form-group">
+                  <label className="form-label">Staff Reference</label>
+                  <input
+                    type="text"
+                    className="input-control"
+                    placeholder="e.g. EIL-042"
+                    value={newStaffRef}
+                    onChange={(e) => setNewStaffRef(e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
                   <label className="form-label">Special Qualifications</label>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginTop: '0.25rem' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem' }}>
+                    <label className="qual-checkbox-label">
                       <input
                         type="checkbox"
                         checked={newStaffLeaderQualified}
                         onChange={(e) => setNewStaffLeaderQualified(e.target.checked)}
                       />
-                      Qualified to cover Shift Leader
+                      Shift Leader Cover
                     </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem' }}>
+                    <label className="qual-checkbox-label">
                       <input
                         type="checkbox"
                         checked={newStaffKitchenQualified}
                         onChange={(e) => setNewStaffKitchenQualified(e.target.checked)}
                       />
-                      Qualified to cover Kitchen
+                      Kitchen Cover
                     </label>
                   </div>
                 </div>
