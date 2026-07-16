@@ -15,6 +15,7 @@ interface DashboardProps {
   onApplyOverride: (date: string, staffId: string, override: RotaShift | null) => void;
   onResetOverrides: () => void;
   onUpdateStaff: (id: string, updates: Partial<Omit<Staff, 'id'>>) => void;
+  manualOverridesCount: number;
   currentUser: User;
   onLogout: () => void;
   rotaStartDate: string;
@@ -33,6 +34,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onApplyOverride,
   onResetOverrides,
   onUpdateStaff,
+  manualOverridesCount,
   currentUser,
   onLogout,
   rotaStartDate,
@@ -371,8 +373,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </option>
                   ))}
                 </select>
-                <button className="btn btn-secondary no-print" onClick={onResetOverrides}>
-                  🔄 Reset Overrides
+                <button
+                  className="btn btn-secondary no-print"
+                  onClick={onResetOverrides}
+                  disabled={manualOverridesCount === 0}
+                  title={manualOverridesCount === 0 ? 'No manual edits to reset (holiday auto-covers are not manual overrides)' : `Reset ${manualOverridesCount} manual cell edit(s)`}
+                  style={{ opacity: manualOverridesCount === 0 ? 0.45 : 1 }}
+                >
+                  🔄 Reset Manual Edits {manualOverridesCount > 0 ? `(${manualOverridesCount})` : ''}
                 </button>
                 <button
                   className="btn btn-secondary no-print"

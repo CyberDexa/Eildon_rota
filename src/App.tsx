@@ -212,6 +212,9 @@ const App: React.FC = () => {
       onUpdateStaff={handleUpdateStaff}
       onApplyOverride={handleApplyOverride}
       onResetOverrides={handleResetOverrides}
+      manualOverridesCount={Object.values(manualOverrides).reduce(
+        (sum, day) => sum + Object.keys(day).length, 0
+      )}
       currentUser={currentUser}
       onLogout={handleLogout}
       rotaStartDate={rotaStartDate}
