@@ -1,19 +1,45 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import type { Staff, Holiday, RotaShift } from './types';
+import type { Staff, Holiday, RotaShift, User } from './types';
 import { generateRota } from './utils/rotaEngine';
 import { Dashboard } from './components/Dashboard';
+import LoginPage from './components/LoginPage';
 import * as api from './api';
 
 const App: React.FC = () => {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [manualOverrides, setManualOverrides] = useState<Record<string, Record<string, RotaShift>>>({});
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [dbError, setDbError] = useState<string | null>(null);
 
-  // Load all data from the database on mount
+  // Rota start date — drives which 28 days are generated
+  const [rotaStartDate, setRotaStartDate] = useState('2026-07-20');
+
+  // On mount: check for stored JWT and validate it
   useEffect(() => {
+    const checkAuth = async () => {
+      const token = api.getStoredToken();
+      if (!token) { setAuthChecked(true); return; }
+      try {
+        const user = await api.getMe();
+        setCurrentUser(user);
+      } catch {
+        api.clearStoredToken();
+      } finally {
+        setAuthChecked(true);
+      }
+    };
+    checkAuth();
+  }, []);
+
+  // Load rota data once the user is authenticated
+  useEffect(() => {
+    if (!currentUser) return;
     const loadAll = async () => {
+      setLoading(true);
       try {
         const [staff, holidayList, overrides] = await Promise.all([
           api.fetchStaff(),
@@ -31,12 +57,12 @@ const App: React.FC = () => {
       }
     };
     loadAll();
-  }, []);
+  }, [currentUser]);
 
   // Rota is computed reactively from the three data sources
   const { rota, covers } = useMemo(
-    () => generateRota(staffList, holidays, manualOverrides),
-    [staffList, holidays, manualOverrides]
+    () => generateRota(staffList, holidays, manualOverrides, rotaStartDate),
+    [staffList, holidays, manualOverrides, rotaStartDate]
   );
 
   // ─── Holiday handlers ─────────────────────────────────────────────────────
@@ -131,7 +157,29 @@ const App: React.FC = () => {
     }
   }, []);
 
+  const handleRotaStartDateChange = useCallback((date: string) => {
+    setRotaStartDate(date);
+  }, []);
+
+  const handleLogin = useCallback((user: User) => {
+    setCurrentUser(user);
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    api.clearStoredToken();
+    setCurrentUser(null);
+    setStaffList([]);
+    setHolidays([]);
+    setManualOverrides({});
+  }, []);
+
   // ─── Loading / error screens ──────────────────────────────────────────────
+
+  // Auth not checked yet — show nothing (avoids flash)
+  if (!authChecked) return null;
+
+  // Not logged in — show login page
+  if (!currentUser) return <LoginPage onLogin={handleLogin} />;
 
   if (loading) {
     return (
@@ -164,6 +212,10 @@ const App: React.FC = () => {
       onUpdateStaff={handleUpdateStaff}
       onApplyOverride={handleApplyOverride}
       onResetOverrides={handleResetOverrides}
+      currentUser={currentUser}
+      onLogout={handleLogout}
+      rotaStartDate={rotaStartDate}
+      onRotaStartDateChange={handleRotaStartDateChange}
     />
   );
 };

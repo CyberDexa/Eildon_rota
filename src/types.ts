@@ -72,3 +72,9 @@ export interface CoverRecord {
   reason: 'Holiday' | 'Shortage';
   timestamp: number;
 }
+
+export interface User {
+  id: string;
+  username: string;
+  role: 'manager' | 'user';
+}

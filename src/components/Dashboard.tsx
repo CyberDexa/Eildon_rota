@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import type { Staff, Holiday, DayRota, RotaShift, CoverRecord, Role } from '../types';
+import type { Staff, Holiday, DayRota, RotaShift, CoverRecord, Role, User } from '../types';
 import { autoGeneratePattern } from '../utils/rotaEngine';
+import * as api from '../api';
 
 interface DashboardProps {
   staffList: Staff[];
@@ -14,6 +15,10 @@ interface DashboardProps {
   onApplyOverride: (date: string, staffId: string, override: RotaShift | null) => void;
   onResetOverrides: () => void;
   onUpdateStaff: (id: string, updates: Partial<Omit<Staff, 'id'>>) => void;
+  currentUser: User;
+  onLogout: () => void;
+  rotaStartDate: string;
+  onRotaStartDateChange: (date: string) => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -28,9 +33,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onApplyOverride,
   onResetOverrides,
   onUpdateStaff,
+  currentUser,
+  onLogout,
+  rotaStartDate,
+  onRotaStartDateChange,
 }) => {
   // Navigation Tabs
-  const [activeTab, setActiveTab] = useState<'rota' | 'staff' | 'holidays' | 'stats'>('rota');
+  const [activeTab, setActiveTab] = useState<'rota' | 'staff' | 'holidays' | 'stats' | 'users'>('rota');
+
+  // User management state (manager only)
+  const [sysUsers, setSysUsers] = useState<(User & { created_at: string })[]>([]);
+  const [usersLoaded, setUsersLoaded] = useState(false);
+  const [newUsername, setNewUsername] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserRole, setNewUserRole] = useState<'manager' | 'user'>('user');
+  const [userError, setUserError] = useState<string | null>(null);
   
   // Rota Week Selector (0 to 3)
   const [selectedWeek, setSelectedWeek] = useState<number>(0);
@@ -69,8 +86,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
   // Inline editing state for Staff Manager table
   const [editingStaffRef, setEditingStaffRef] = useState<{ id: string; value: string } | null>(null);
 
-  // Date ranges for weeks
-  const weekStartDates = ['2026-07-20', '2026-07-27', '2026-08-03', '2026-08-10'];
+  // Rota start date helpers
+  const addDays = (dateStr: string, n: number) => {
+    const d = new Date(dateStr + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().split('T')[0];
+  };
+
+  const weekStartDates = [0, 1, 2, 3].map((i) => addDays(rotaStartDate, i * 7));
+
+  const periodLabel = () => {
+    const start = new Date(rotaStartDate + 'T00:00:00Z');
+    const end = new Date(addDays(rotaStartDate, 27) + 'T00:00:00Z');
+    const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    return `${fmt(start)} — ${fmt(end)}`;
+  };
   const weekLabel = (weekIndex: number) => {
     const start = new Date(weekStartDates[weekIndex]);
     const end = new Date(start);
@@ -259,6 +289,30 @@ export const Dashboard: React.FC<DashboardProps> = ({
           >
             📊 Fair Rotation Stats
           </button>
+          {currentUser.role === 'manager' && (
+            <button
+              className={`tab-btn ${activeTab === 'users' ? 'active' : ''}`}
+              onClick={async () => {
+                setActiveTab('users');
+                if (!usersLoaded) {
+                  try { setSysUsers(await api.getUsers()); setUsersLoaded(true); } catch { setUserError('Failed to load users'); }
+                }
+              }}
+            >
+              🔑 User Accounts
+            </button>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+            👤 {currentUser.username}
+            <span style={{ marginLeft: '0.4rem', fontSize: '0.7rem', background: 'var(--primary-glow)', color: 'var(--primary)', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
+              {currentUser.role}
+            </span>
+          </span>
+          <button className="btn btn-secondary" style={{ fontSize: '0.78rem', padding: '4px 12px' }} onClick={onLogout}>
+            Sign Out
+          </button>
         </div>
       </nav>
 
@@ -288,8 +342,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {activeTab === 'rota' && (
           <div className="glass-card">
             <div className="card-header-flex">
-              <h2>4-Week Rota Grid</h2>
+              <div>
+                <h2>4-Week Rota Grid</h2>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>{periodLabel()}</p>
+              </div>
               <div className="controls-bar" style={{ margin: 0 }}>
+                <button
+                  className="btn btn-secondary no-print"
+                  onClick={() => onRotaStartDateChange(addDays(rotaStartDate, -28))}
+                >
+                  ← Prev 4 Weeks
+                </button>
+                <button
+                  className="btn btn-primary no-print"
+                  onClick={() => onRotaStartDateChange(addDays(rotaStartDate, 28))}
+                >
+                  Generate Next 4 Weeks →
+                </button>
                 <select
                   className="select-control"
                   value={roleFilter}
@@ -302,7 +371,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </option>
                   ))}
                 </select>
-                <button className="btn btn-secondary" onClick={onResetOverrides}>
+                <button className="btn btn-secondary no-print" onClick={onResetOverrides}>
                   🔄 Reset Overrides
                 </button>
                 <button
@@ -403,15 +472,26 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           hoverTitle = `${staff.name} is on Holiday`;
                         }
 
+                        // Check if THIS staff member is covering for someone else today
+                        const coveringRecord = covers.find(
+                          (c) => c.coverStaffId === staff.id && c.date === day.date
+                        );
+                        const coveringFor = coveringRecord
+                          ? staffList.find((s) => s.id === coveringRecord.originalStaffId)
+                          : null;
+
                         return (
-                          <td key={day.date} title={hoverTitle}>
+                          <td key={day.date} title={coveringFor ? `${staff.name} is covering for ${coveringFor.name} today` : hoverTitle}>
                             <div
-                              className={`shift-cell-inner ${cellClass}`}
+                              className={`shift-cell-inner ${cellClass}${coveringFor ? ' shift-covering-active' : ''}`}
                               onClick={() => handleCellClick(day.date, staff.id, shift)}
                             >
                               {cellContent || '-'}
                               {coverLabel && (
                                 <span className="shift-cover-original">{coverLabel}</span>
+                              )}
+                              {coveringFor && (
+                                <span className="shift-covering-label">↔ {coveringFor.name.split(' ')[0]}</span>
                               )}
                               {shift?.isCover && shift.coverReason !== 'Shortage' && (
                                 <span className="shift-cover-badge">C</span>
@@ -460,6 +540,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <div className="legend-item">
                 <div className="legend-color shift-holiday-vacant"></div>
                 <span>Shortage (Unfilled Cover)</span>
+              </div>
+              <div className="legend-item">
+                <div style={{ width:14, height:14, borderRadius:3, background:'rgba(245,158,11,0.15)', border:'2px solid #f59e0b' }}></div>
+                <span>Covering for colleague</span>
               </div>
             </div>
 
@@ -876,6 +960,121 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: USER ACCOUNTS (manager only) */}
+        {activeTab === 'users' && currentUser.role === 'manager' && (
+          <div className="split-layout">
+            <div className="glass-card">
+              <h2>User Accounts</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginBottom: '1.25rem' }}>
+                Manage who can access this rota system. Users you create can log in and make changes on your behalf.
+              </p>
+              {userError && <div className="login-error" style={{ marginBottom: '1rem' }}>{userError}</div>}
+              <table className="table-simple">
+                <thead>
+                  <tr>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th>Created</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sysUsers.map((u) => (
+                    <tr key={u.id}>
+                      <td style={{ fontWeight: 600 }}>{u.username}</td>
+                      <td>
+                        <span className={`status-indicator ${u.role === 'manager' ? 'status-indicator-green' : ''}`}>
+                          {u.role}
+                        </span>
+                      </td>
+                      <td style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                        {new Date(u.created_at).toLocaleDateString()}
+                      </td>
+                      <td>
+                        {u.id !== currentUser.id && (
+                          <button
+                            className="btn btn-danger"
+                            style={{ padding: '2px 8px', fontSize: '0.75rem' }}
+                            onClick={async () => {
+                              if (!confirm(`Delete user "${u.username}"?`)) return;
+                              try {
+                                await api.deleteUser(u.id);
+                                setSysUsers((prev) => prev.filter((x) => x.id !== u.id));
+                              } catch (e) {
+                                setUserError(e instanceof Error ? e.message : 'Delete failed');
+                              }
+                            }}
+                          >
+                            🗑 Delete
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="glass-card">
+              <h3>Create New User</h3>
+              <form
+                style={{ marginTop: '1.25rem' }}
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setUserError(null);
+                  try {
+                    const created = await api.createUser(newUsername, newUserPassword, newUserRole);
+                    setSysUsers((prev) => [...prev, created]);
+                    setNewUsername('');
+                    setNewUserPassword('');
+                    setNewUserRole('user');
+                  } catch (e) {
+                    setUserError(e instanceof Error ? e.message : 'Create failed');
+                  }
+                }}
+              >
+                <div className="form-group">
+                  <label className="form-label">Username</label>
+                  <input
+                    type="text"
+                    className="input-control"
+                    placeholder="e.g. deputy"
+                    value={newUsername}
+                    onChange={(e) => setNewUsername(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Password</label>
+                  <input
+                    type="password"
+                    className="input-control"
+                    placeholder="Min. 6 characters"
+                    value={newUserPassword}
+                    onChange={(e) => setNewUserPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Role</label>
+                  <select
+                    className="select-control"
+                    value={newUserRole}
+                    onChange={(e) => setNewUserRole(e.target.value as 'manager' | 'user')}
+                  >
+                    <option value="user">User (can edit rota)</option>
+                    <option value="manager">Manager (full access)</option>
+                  </select>
+                </div>
+                <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
+                  ➕ Create User Account
+                </button>
+              </form>
             </div>
           </div>
         )}

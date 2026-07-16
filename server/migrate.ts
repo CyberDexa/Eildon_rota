@@ -1,14 +1,10 @@
-/**
- * Run once to create tables and seed initial staff.
- *   npm run migrate
- */
 import 'dotenv/config';
 import { sql } from './db.js';
+import bcrypt from 'bcryptjs';
 
 async function migrate() {
   console.log('▶ Running migrations…');
 
-  // ── Create tables ────────────────────────────────────────────────────────
   await sql`
     CREATE TABLE IF NOT EXISTS staff (
       id                            TEXT    PRIMARY KEY,
@@ -41,16 +37,40 @@ async function migrate() {
     )
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS users (
+      id            TEXT PRIMARY KEY,
+      username      TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      role          TEXT NOT NULL DEFAULT 'user',
+      created_at    TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
   console.log('  ✓ Tables ready');
 
+  // ── Seed manager account ──────────────────────────────────────────────────
+  const [{ userCount }] = await sql`SELECT COUNT(*)::int AS "userCount" FROM users`;
+  if (Number(userCount) === 0) {
+    const initialPwd = process.env.INITIAL_MANAGER_PASSWORD ?? 'Eildon2026!';
+    const hash = await bcrypt.hash(initialPwd, 10);
+    await sql`
+      INSERT INTO users (id, username, password_hash, role)
+      VALUES ('manager-1', 'manager', ${hash}, 'manager')
+      ON CONFLICT (id) DO NOTHING
+    `;
+    console.log(`  ✓ Manager account created  (username: manager  |  password: ${initialPwd})`);
+    console.log('  ⚠  Change this password after first login!');
+  } else {
+    console.log('  ℹ Users table already populated — skipping seed');
+  }
+
   // ── Seed initial staff if empty ───────────────────────────────────────────
-  const [{ count }] = await sql`SELECT COUNT(*)::int AS count FROM staff`;
-  if (Number(count) > 0) {
-    console.log(`  ℹ Staff table already has ${count} records — skipping seed`);
+  const [{ staffCount }] = await sql`SELECT COUNT(*)::int AS "staffCount" FROM staff`;
+  if (Number(staffCount) > 0) {
+    console.log(`  ℹ Staff table has ${staffCount} records — skipping seed`);
   } else {
     console.log('  ▶ Seeding initial staff…');
-
-    // Dynamic import so we don't import at module level (allows tsx to resolve it)
     const { INITIAL_STAFF } = await import('../src/data/initialData.js');
 
     for (const s of INITIAL_STAFF) {
@@ -71,14 +91,12 @@ async function migrate() {
       `;
     }
 
-    // Seed the two sample holidays
     await sql`
       INSERT INTO holidays (id, staff_id, start_date, end_date) VALUES
         ('h-1', 'jahanvi-bh', '2026-07-22', '2026-07-24'),
         ('h-2', 'becky-ovu',  '2026-07-21', '2026-07-23')
       ON CONFLICT (id) DO NOTHING
     `;
-
     console.log(`  ✓ Seeded ${INITIAL_STAFF.length} staff members + 2 sample holidays`);
   }
 
