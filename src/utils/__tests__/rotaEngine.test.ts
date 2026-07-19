@@ -21,34 +21,77 @@ describe('Rota Scheduling Engine Tests', () => {
     expect(satShifts['natasha-t']).toBeUndefined(); // Off
   });
 
-  it('should automatically assign cover when a staff member goes on holiday', () => {
-    // Jahanvi Bh (Staff Nurse) goes on holiday on Mon July 20th
+  it('should automatically assign cover when a working staff member goes on holiday', () => {
+    const testStaff: Staff[] = [
+      {
+        id: 'nurse-a',
+        name: 'Nurse A',
+        role: 'Staff Nurse',
+        contractedHours: 44,
+        defaultPattern: { 0: 'E/L' },
+      },
+      {
+        id: 'nurse-b',
+        name: 'Nurse B',
+        role: 'Staff Nurse',
+        contractedHours: 44,
+        defaultPattern: {},
+      },
+    ];
+
     const holiday: Holiday = {
       id: 'h-test-1',
-      staffId: 'jahanvi-bh',
+      staffId: 'nurse-a',
       startDate: '2026-07-20',
       endDate: '2026-07-20',
     };
 
-    const { rota, covers } = generateRota(INITIAL_STAFF, [holiday], {}, '2026-07-20', 7);
-
-    // Jahanvi had Mon shift "M/L".
-    // Available Staff Nurses on Mon:
-    // - Mariya pal (defaultPattern on Mon: Off)
-    // - Kathleen R (defaultPattern on Mon: E/L -> Already working, so cannot cover!)
-    // So Mariya pal is the only candidate available.
+    const { rota, covers } = generateRota(testStaff, [holiday], {}, '2026-07-20', 7);
     const monShifts = rota[0].shifts;
 
-    // Verify Jahanvi's shift is covered by Mariya pal
-    expect(monShifts['jahanvi-bh']).toBeDefined();
-    expect(monShifts['jahanvi-bh']?.isCover).toBe(true);
-    expect(monShifts['jahanvi-bh']?.staffId).toBe('mariya-pal');
-    expect(monShifts['jahanvi-bh']?.originalStaffId).toBe('jahanvi-bh');
+    expect(monShifts['nurse-a']).toBeDefined();
+    expect(monShifts['nurse-a']?.isCover).toBe(true);
+    expect(monShifts['nurse-a']?.staffId).toBe('nurse-b');
+    expect(monShifts['nurse-a']?.originalStaffId).toBe('nurse-a');
 
-    // Verify cover list has recorded it
     expect(covers).toHaveLength(1);
-    expect(covers[0].coverStaffId).toBe('mariya-pal');
-    expect(covers[0].originalStaffId).toBe('jahanvi-bh');
+    expect(covers[0].coverStaffId).toBe('nurse-b');
+    expect(covers[0].originalStaffId).toBe('nurse-a');
+  });
+
+  it('should not request cover for maternity leave shifts', () => {
+    const testStaff: Staff[] = [
+      {
+        id: 'nurse-a',
+        name: 'Nurse A',
+        role: 'Staff Nurse',
+        contractedHours: 44,
+        defaultPattern: { 0: 'ML' },
+      },
+      {
+        id: 'nurse-b',
+        name: 'Nurse B',
+        role: 'Staff Nurse',
+        contractedHours: 44,
+        defaultPattern: {},
+      },
+    ];
+
+    const holiday: Holiday = {
+      id: 'h-test-ml',
+      staffId: 'nurse-a',
+      startDate: '2026-07-20',
+      endDate: '2026-07-20',
+    };
+
+    const { rota, covers } = generateRota(testStaff, [holiday], {}, '2026-07-20', 7);
+
+    expect(rota[0].shifts['nurse-a']).toEqual({
+      staffId: 'nurse-a',
+      shiftLabel: 'ML',
+      isCover: false,
+    });
+    expect(covers).toHaveLength(0);
   });
 
   it('should follow fair rotation rules (least recently worked cover shift)', () => {
@@ -206,5 +249,87 @@ describe('Rota Scheduling Engine Tests', () => {
     const monShifts = rota[0].shifts;
     expect(monShifts['carer-a']).toBeDefined();
     expect(monShifts['carer-a']?.staffId).toBe('carer-c');
+  });
+
+  it('should use Activities special qualification for Activities holiday cover', () => {
+    const testStaff: Staff[] = [
+      {
+        id: 'activities-a',
+        name: 'Activities A',
+        role: 'Activities',
+        contractedHours: 40,
+        defaultPattern: { 0: '8/5.30' },
+      },
+      {
+        id: 'carer-a',
+        name: 'Carer A',
+        role: 'Carer',
+        contractedHours: 44,
+        defaultPattern: {},
+      },
+      {
+        id: 'carer-b',
+        name: 'Carer B',
+        role: 'Carer',
+        contractedHours: 44,
+        isQualifiedForActivities: true,
+        defaultPattern: {},
+      },
+    ];
+
+    const holidays: Holiday[] = [
+      {
+        id: 'h-activities',
+        staffId: 'activities-a',
+        startDate: '2026-07-20',
+        endDate: '2026-07-20',
+      },
+    ];
+
+    const { rota } = generateRota(testStaff, holidays, {}, '2026-07-20', 7);
+
+    expect(rota[0].shifts['activities-a']).toBeDefined();
+    expect(rota[0].shifts['activities-a']?.staffId).toBe('carer-b');
+  });
+
+  it('should use Domestic/Laundry special qualification for domestic holiday cover', () => {
+    const testStaff: Staff[] = [
+      {
+        id: 'domestic-a',
+        name: 'Domestic A',
+        role: 'Domestic/Laundry',
+        contractedHours: 30,
+        defaultPattern: { 0: '12/6' },
+      },
+      {
+        id: 'carer-a',
+        name: 'Carer A',
+        role: 'Carer',
+        contractedHours: 44,
+        defaultPattern: {},
+      },
+      {
+        id: 'carer-b',
+        name: 'Carer B',
+        role: 'Carer',
+        contractedHours: 44,
+        isQualifiedForDomesticLaundry: true,
+        defaultPattern: {},
+      },
+    ];
+
+    const holidays: Holiday[] = [
+      {
+        id: 'h-domestic',
+        staffId: 'domestic-a',
+        startDate: '2026-07-20',
+        endDate: '2026-07-20',
+      },
+    ];
+
+    const { rota } = generateRota(testStaff, holidays, {}, '2026-07-20', 7);
+
+    expect(rota[0].shifts['domestic-a']).toBeDefined();
+    expect(rota[0].shifts['domestic-a']?.staffId).toBe('carer-b');
   });
 });

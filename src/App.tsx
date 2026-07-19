@@ -16,7 +16,7 @@ const App: React.FC = () => {
   const [dbError, setDbError] = useState<string | null>(null);
 
   // Rota start date — drives which 28 days are generated
-  const [rotaStartDate, setRotaStartDate] = useState('2026-07-20');
+  const [rotaStartDate, setRotaStartDate] = useState('2026-08-10');
 
   // On mount: check for stored JWT and validate it
   useEffect(() => {

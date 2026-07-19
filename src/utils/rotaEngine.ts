@@ -24,13 +24,19 @@ export const getDayOfWeekIndex = (dateStr: string): number => {
 // Cross-cover eligibility rules
 const CROSS_COVER_ELIGIBILITY: Record<Role, Role[]> = {
   'Manager': [],
-  'Staff Nurse': ['Bank'], // Staff nurse shifts can only be covered by Nurses or qualified Bank
+  'Staff Nurse': ['Bank', 'Shift Leader'], // Staff nurse shifts can only be covered by Nurses or qualified Bank
   'Shift Leader': ['Staff Nurse', 'Bank'], // Ezekiel Ola is a carer qualified for Shift Leader, handled dynamically
   'Carer': ['Shift Leader', 'Staff Nurse', 'Bank'],
   'Activities': [],
   'Kitchen': ['Carer', 'Bank'], // Oluwaseun is qualified for Kitchen, handled dynamically
-  'Domestic/Laundry': ['Bank'],
+  'Domestic/Laundry': ['Bank'], // Additional Domestic/Laundry cover is handled with qualification flags
   'Bank': ['Carer', 'Shift Leader'],
+};
+
+const isWorkingShift = (shiftLabel: string): boolean => {
+  if (!shiftLabel || shiftLabel === 'Off') return false;
+  const shiftDef = SHIFT_DEFINITIONS[shiftLabel];
+  return shiftDef?.category !== 'Off';
 };
 
 interface CoverState {
@@ -42,7 +48,7 @@ export function generateRota(
   staffList: Staff[],
   holidays: Holiday[],
   manualOverrides: Record<string, Record<string, RotaShift>> = {},
-  startDateStr: string = '2026-07-20',
+  startDateStr: string = '2026-08-10',
   totalDays: number = 28
 ): { rota: DayRota[]; covers: CoverRecord[] } {
   const dates = getDatesInRange(startDateStr, totalDays);
@@ -92,7 +98,7 @@ export function generateRota(
       if (dayTime >= hStart && dayTime <= hEnd) {
         const scheduledShift = rotaData[dateStr]?.[holiday.staffId];
         // If they were scheduled to work, mark as needing cover
-        if (scheduledShift && scheduledShift.shiftLabel && scheduledShift.shiftLabel !== 'Off') {
+        if (scheduledShift && isWorkingShift(scheduledShift.shiftLabel)) {
           rotaData[dateStr][holiday.staffId] = {
             staffId: holiday.staffId,
             shiftLabel: scheduledShift.shiftLabel,
@@ -113,6 +119,7 @@ export function generateRota(
   ): boolean => {
     const targetDef = SHIFT_DEFINITIONS[targetShiftLabel];
     if (!targetDef) return false;
+    if (targetDef.category === 'Off') return false;
 
     // A candidate cannot work if they already have a shift assigned on that day
     const existingShift = rotaData[dateStr]?.[candidateId];
@@ -200,6 +207,12 @@ export function generateRota(
             roleQualified = true;
           }
           if (targetRole === 'Kitchen' && candidate.isQualifiedForKitchen) {
+            roleQualified = true;
+          }
+          if (targetRole === 'Activities' && candidate.isQualifiedForActivities) {
+            roleQualified = true;
+          }
+          if (targetRole === 'Domestic/Laundry' && candidate.isQualifiedForDomesticLaundry) {
             roleQualified = true;
           }
         }
@@ -301,7 +314,7 @@ export function generateRota(
 
     // Calculate staffing levels
     // From sample: Earlies = 4, Lates = 4, Nights = 3
-    // E/L and M/L shifts count as both Early and Late (Long Day)
+    // E/L shifts count as both Early and Late (Long Day)
     // N shifts count as Night
     let scheduledEarlies = 0;
     let scheduledLates = 0;
@@ -394,7 +407,7 @@ export function autoGeneratePattern(
   // Week B fill order: Mon–Fri only (no weekend)
   const weekBOrder = [7, 8, 9, 10, 11];
 
-  const shiftForDay = (dayIndex: number, weekAB: 'A' | 'B'): string => {
+  const shiftForDay = (weekAB: 'A' | 'B'): string => {
     if (preference === 'Night') return getShift(true);
     if (preference === 'Day') return getShift(false);
     // Mixed: Day shifts in Week A, Night shifts in Week B
@@ -402,10 +415,10 @@ export function autoGeneratePattern(
   };
 
   weekAOrder.slice(0, weekACount).forEach((d) => {
-    pattern[d] = shiftForDay(d, 'A');
+    pattern[d] = shiftForDay('A');
   });
   weekBOrder.slice(0, weekBCount).forEach((d) => {
-    pattern[d] = shiftForDay(d, 'B');
+    pattern[d] = shiftForDay('B');
   });
 
   return pattern;

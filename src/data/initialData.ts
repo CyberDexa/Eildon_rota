@@ -4,22 +4,29 @@ export const SHIFT_DEFINITIONS: Record<string, ShiftDefinition> = {
   'E/L': {
     label: 'E/L',
     category: 'Day',
-    startTime: '07:00',
-    endTime: '19:00',
+    startTime: '07:30',
+    endTime: '19:30',
     hours: 11,
+  },
+  'ML': {
+    label: 'ML',
+    category: 'Off',
+    startTime: '',
+    endTime: '',
+    hours: 0,
   },
   'M/L': {
     label: 'M/L',
-    category: 'Day',
-    startTime: '07:00',
-    endTime: '18:00',
-    hours: 11,
+    category: 'Off',
+    startTime: '',
+    endTime: '',
+    hours: 0,
   },
   'N': {
     label: 'N',
     category: 'Night',
-    startTime: '19:00',
-    endTime: '06:00',
+    startTime: '19:30',
+    endTime: '07:30',
     hours: 11,
   },
   '7/5': {
@@ -89,8 +96,8 @@ export const INITIAL_STAFF: Staff[] = [
     shiftPreference: 'Day',
     staffRef: 'EIL-002',
     defaultPattern: {
-      0: 'M/L', 1: 'M/L', 2: 'M/L', 3: 'M/L', // Week A
-      7: 'M/L', 8: 'M/L', 9: 'M/L', 10: 'M/L', // Week B
+      0: 'ML', 1: 'ML', 2: 'ML', 3: 'ML', // Week A
+      7: 'ML', 8: 'ML', 9: 'ML', 10: 'ML', // Week B
     },
   },
   {
@@ -102,7 +109,7 @@ export const INITIAL_STAFF: Staff[] = [
     staffRef: 'EIL-003',
     defaultPattern: {
       2: 'E/L', 3: 'E/L', 4: 'E/L', 6: 'E/L', // Week A
-      9: 'E/L', 10: 'E/L', 11: 'E/L', 13: 'E/L', // Week B
+      7: 'E/L', 8: 'E/L', 12: 'E/L', 13: 'E/L', // Week B
     },
   },
   {
@@ -114,22 +121,10 @@ export const INITIAL_STAFF: Staff[] = [
     staffRef: 'EIL-004',
     defaultPattern: {
       0: 'E/L', 1: 'E/L', 5: 'E/L', 6: 'E/L', // Week A (44 hours)
-      7: 'E/L', 12: 'E/L', 13: 'E/L', // Week B (33 hours - Mon, Sat, Sun) -> Averages 38.5h
+      9: 'E/L', 10: 'E/L', 11: 'E/L', // Week B (33 hours - Mon, Sat, Sun) -> Averages 38.5h
     },
   },
   // Shift Leaders
-  {
-    id: 'peter',
-    name: 'Peter',
-    role: 'Shift Leader',
-    contractedHours: 44,
-    shiftPreference: 'Day',
-    staffRef: 'EIL-005',
-    defaultPattern: {
-      0: 'E/L', 1: 'E/L', 5: 'E/L', 6: 'E/L', // Week A
-      7: 'E/L', 8: 'E/L', 12: 'E/L', 13: 'E/L', // Week B
-    },
-  },
   {
     id: 'toheeb',
     name: 'Toheeb',
@@ -139,7 +134,7 @@ export const INITIAL_STAFF: Staff[] = [
     staffRef: 'EIL-006',
     defaultPattern: {
       0: 'E/L', 3: 'E/L', 4: 'N', 5: 'N', // Week A
-      7: 'E/L', 10: 'E/L', 11: 'N', 12: 'N', // Week B
+      7: 'E/L', 8: 'N', 10: 'E/L', 13: 'E/L', // Week B
     },
   },
   {
@@ -154,6 +149,16 @@ export const INITIAL_STAFF: Staff[] = [
       7: 'N', 9: 'N', 10: 'N', 13: 'N', // Week B
     },
   },
+  // Bank Staff
+  {
+    id: 'adela',
+    name: 'Adela',
+    role: 'Bank',
+    contractedHours: 0,
+    shiftPreference: 'Mixed', // Bank covers anything
+    staffRef: 'EIL-017',
+    defaultPattern: {},
+  },
   // Carers
   {
     id: 'ademola-a',
@@ -164,7 +169,7 @@ export const INITIAL_STAFF: Staff[] = [
     staffRef: 'EIL-008',
     defaultPattern: {
       0: 'N', 2: 'N', 3: 'N', 5: 'N', // Week A
-      7: 'N', 9: 'N', 10: 'N', 12: 'N', // Week B
+      7: 'N', 10: 'N', 12: 'N', 13: 'N', // Week B
     },
   },
   {
@@ -176,7 +181,7 @@ export const INITIAL_STAFF: Staff[] = [
     staffRef: 'EIL-009',
     defaultPattern: {
       0: 'N', 1: 'N', 4: 'N', 6: 'N', // Week A
-      7: 'N', 8: 'N', 11: 'N', 13: 'N', // Week B
+      8: 'N', 9: 'N', 11: 'N', 12: 'N', // Week B
     },
   },
   {
@@ -188,7 +193,7 @@ export const INITIAL_STAFF: Staff[] = [
     staffRef: 'EIL-010',
     defaultPattern: {
       1: 'N', 2: 'N', 4: 'N', 5: 'N', // Week A
-      8: 'N', 9: 'N', 11: 'N', 12: 'N', // Week B
+      8: 'N', 9: 'N', 11: 'N', 13: 'N', // Week B
     },
   },
   {
@@ -200,7 +205,7 @@ export const INITIAL_STAFF: Staff[] = [
     staffRef: 'EIL-011',
     defaultPattern: {
       1: 'E/L', 2: 'E/L', 5: 'E/L', 6: 'E/L', // Week A
-      8: 'E/L', 9: 'E/L', 12: 'E/L', 13: 'E/L', // Week B
+      7: 'E/L', 9: 'E/L', 10: 'E/L', 11: 'E/L', // Week B
     },
   },
   {
@@ -211,8 +216,8 @@ export const INITIAL_STAFF: Staff[] = [
     shiftPreference: 'Day', // Day Only
     staffRef: 'EIL-012',
     defaultPattern: {
-      3: 'E/L', 4: 'E/L', 5: 'E/L', // Week A (33 hours)
-      10: 'E/L', 11: 'E/L', 12: 'E/L', 13: 'E/L', // Week B (44 hours) -> Averages 38.5h
+      1: 'E/L', 2: 'E/L', 4: 'E/L', // Week A (33 hours)
+      7: 'E/L', 9: 'E/L', 12: 'E/L', 13: 'E/L', // Week B (44 hours) -> Averages 38.5h
     },
   },
   {
@@ -224,7 +229,7 @@ export const INITIAL_STAFF: Staff[] = [
     staffRef: 'EIL-013',
     defaultPattern: {
       1: 'E/L', 3: 'E/L', 4: 'E/L', // Week A
-      8: 'E/L', 10: 'E/L', 11: 'E/L', // Week B
+      8: 'E/L', 12: 'E/L', 13: 'E/L', // Week B
     },
   },
   {
@@ -235,10 +240,9 @@ export const INITIAL_STAFF: Staff[] = [
     shiftPreference: 'Day', // Day Only
     staffRef: 'EIL-014',
     defaultPattern: {
-      0: 'E/L', 2: 'E/L', 4: 'E/L', 5: 'E/L', // Week A (44 hours)
-      7: 'E/L', 9: 'E/L', 11: 'E/L', // Week B (33 hours - Mon, Wed, Fri) -> Averages 38.5h
+      0: 'E/L', 2: 'E/L', 3: 'E/L', 5: 'E/L', // Week A (44 hours)
+      8: 'E/L', 10: 'E/L', 11: 'E/L', // Week B (33 hours) -> Averages 38.5h
     },
-    isQualifiedForShiftLeader: true,
   },
   {
     id: 'salonee-bh',
@@ -248,8 +252,8 @@ export const INITIAL_STAFF: Staff[] = [
     shiftPreference: 'Day', // Day Only
     staffRef: 'EIL-015',
     defaultPattern: {
-      2: 'E/L', 4: 'E/L', 6: 'E/L', // Week A (33 hours)
-      9: 'E/L', 11: 'E/L', 12: 'E/L', 13: 'E/L', // Week B (44 hours) -> Averages 38.5h
+      2: 'E/L', 3: 'E/L', 5: 'E/L', // Week A (33 hours)
+      8: 'E/L', 10: 'E/L', 11: 'E/L', 13: 'E/L', // Week B (44 hours) -> Averages 38.5h
     },
   },
   {
@@ -260,20 +264,9 @@ export const INITIAL_STAFF: Staff[] = [
     shiftPreference: 'Mixed', // Works Day and Night
     staffRef: 'EIL-016',
     defaultPattern: {
-      1: 'N', 3: 'N', 5: 'E/L - K', 6: 'N', // Week A
-      8: 'N', 10: 'N', 12: 'E/L - K', 13: 'N', // Week B
+      0: 'E/L', 3: 'N', 5: 'E/L', 6: 'N', // Week A
+      7: 'N', 9: 'E/L', 10: 'N', 13: 'E-K', // Week B
     },
-    isQualifiedForKitchen: true,
-  },
-  // Bank Staff
-  {
-    id: 'adela',
-    name: 'Adela',
-    role: 'Bank',
-    contractedHours: 0,
-    shiftPreference: 'Mixed', // Bank covers anything
-    staffRef: 'EIL-017',
-    defaultPattern: {},
   },
   // Activities
   {

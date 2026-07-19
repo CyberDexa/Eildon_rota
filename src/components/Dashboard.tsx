@@ -69,8 +69,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   // Form states - Holiday
   const [holidayStaffId, setHolidayStaffId] = useState('');
-  const [holidayStart, setHolidayStart] = useState('2026-07-20');
-  const [holidayEnd, setHolidayEnd] = useState('2026-07-26');
+  const [holidayStart, setHolidayStart] = useState('2026-08-10');
+  const [holidayEnd, setHolidayEnd] = useState('2026-08-16');
 
   // Form states - Staff
   const [newStaffName, setNewStaffName] = useState('');
@@ -83,6 +83,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   });
   const [newStaffLeaderQualified, setNewStaffLeaderQualified] = useState(false);
   const [newStaffKitchenQualified, setNewStaffKitchenQualified] = useState(false);
+  const [newStaffActivitiesQualified, setNewStaffActivitiesQualified] = useState(false);
+  const [newStaffLaundryQualified, setNewStaffLaundryQualified] = useState(false);
   const [newStaffRef, setNewStaffRef] = useState('');
 
   // Inline editing state for Staff Manager table
@@ -193,12 +195,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
       defaultPattern: newStaffPattern,
       isQualifiedForShiftLeader: newStaffLeaderQualified,
       isQualifiedForKitchen: newStaffKitchenQualified,
+      isQualifiedForActivities: newStaffActivitiesQualified,
+      isQualifiedForDomesticLaundry: newStaffLaundryQualified,
       shiftPreference: newStaffPreference,
       staffRef: newStaffRef.trim() || undefined,
     });
     setNewStaffName('');
     setNewStaffRef('');
     setNewStaffPreference('Mixed');
+    setNewStaffLeaderQualified(false);
+    setNewStaffKitchenQualified(false);
+    setNewStaffActivitiesQualified(false);
+    setNewStaffLaundryQualified(false);
     setNewStaffPattern({
       0: '', 1: '', 2: '', 3: '', 4: '', 5: '', 6: '',
       7: '', 8: '', 9: '', 10: '', 11: '', 12: '', 13: ''
@@ -226,7 +234,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const handleToggleQualification = (
     staffId: string,
-    qual: 'isQualifiedForShiftLeader' | 'isQualifiedForKitchen',
+    qual:
+      | 'isQualifiedForShiftLeader'
+      | 'isQualifiedForKitchen'
+      | 'isQualifiedForActivities'
+      | 'isQualifiedForDomesticLaundry',
     currentValue: boolean
   ) => {
     onUpdateStaff(staffId, { [qual]: !currentValue });
@@ -523,7 +535,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div className="legend-container">
               <div className="legend-item">
                 <div className="legend-color shift-E-L"></div>
-                <span>Day Shift (E/L, M/L)</span>
+                <span>Day Shift (E/L)</span>
+              </div>
+              <div className="legend-item">
+                <div className="legend-color shift-ML"></div>
+                <span>Maternity Leave (ML)</span>
               </div>
               <div className="legend-item">
                 <div className="legend-color shift-N"></div>
@@ -709,6 +725,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             />
                             Kitchen Cover
                           </label>
+                          <label className="qual-checkbox-label">
+                            <input
+                              type="checkbox"
+                              checked={!!staff.isQualifiedForActivities}
+                              onChange={() => handleToggleQualification(staff.id, 'isQualifiedForActivities', !!staff.isQualifiedForActivities)}
+                            />
+                            Activities Cover
+                          </label>
+                          <label className="qual-checkbox-label">
+                            <input
+                              type="checkbox"
+                              checked={!!staff.isQualifiedForDomesticLaundry}
+                              onChange={() => handleToggleQualification(staff.id, 'isQualifiedForDomesticLaundry', !!staff.isQualifiedForDomesticLaundry)}
+                            />
+                            Domestic / Laundry Cover
+                          </label>
                         </div>
                       </td>
                       <td>
@@ -741,7 +773,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div>
                   <strong>Staff Nurses (3)</strong>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    Requires continuous clinical coverage on E/L or M/L shifts.
+                    Requires continuous clinical coverage on E/L shifts.
                   </p>
                 </div>
                 <div>
@@ -1232,6 +1264,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       />
                       Kitchen Cover
                     </label>
+                    <label className="qual-checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={newStaffActivitiesQualified}
+                        onChange={(e) => setNewStaffActivitiesQualified(e.target.checked)}
+                      />
+                      Activities Cover
+                    </label>
+                    <label className="qual-checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={newStaffLaundryQualified}
+                        onChange={(e) => setNewStaffLaundryQualified(e.target.checked)}
+                      />
+                      Domestic / Laundry Cover
+                    </label>
                   </div>
                 </div>
               </div>
@@ -1269,7 +1317,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       >
                         <option value="">Off</option>
                         <option value="E/L">E/L</option>
-                        <option value="M/L">M/L</option>
+                        <option value="ML">ML</option>
                         <option value="N">N</option>
                         <option value="7/5">7/5</option>
                         <option value="8/5.30">8/5.30</option>
@@ -1304,7 +1352,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         >
                           <option value="">Off</option>
                           <option value="E/L">E/L</option>
-                          <option value="M/L">M/L</option>
+                          <option value="ML">ML</option>
                           <option value="N">N</option>
                           <option value="7/5">7/5</option>
                           <option value="8/5.30">8/5.30</option>

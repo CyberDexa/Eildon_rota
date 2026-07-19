@@ -33,6 +33,8 @@ export interface Staff {
   defaultPattern: Record<number, string>; // 0-6 = Week A (Mon-Sun), 7-13 = Week B (Mon-Sun)
   isQualifiedForShiftLeader?: boolean; // For Carers
   isQualifiedForKitchen?: boolean; // For Carers
+  isQualifiedForActivities?: boolean;
+  isQualifiedForDomesticLaundry?: boolean;
   shiftPreference?: 'Day' | 'Night' | 'Mixed'; // Added constraint: can be Day only, Night only, or Mixed
   staffRef?: string; // Staff Reference Code (e.g. Employee ID)
 }

@@ -363,10 +363,16 @@ button, input, select, textarea {
 }
 
 /* Shift Type Colors */
-.shift-E-L, .shift-M-L {
+.shift-E-L {
   background: var(--shift-day-bg);
   color: var(--shift-day);
   border: 1px solid var(--shift-day-border);
+}
+
+.shift-ML, .shift-M-L {
+  background: var(--shift-holiday-bg);
+  color: var(--shift-holiday);
+  border: 1px solid var(--shift-holiday-border);
 }
 
 .shift-N {
@@ -906,7 +912,8 @@ button, input, select, textarea {
   }
 
   /* Keep shift colours readable in print */
-  .shift-E-L, .shift-M-L { background: #fef9c3 !important; color: #713f12 !important; border-color: #fde68a !important; }
+  .shift-E-L            { background: #fef9c3 !important; color: #713f12 !important; border-color: #fde68a !important; }
+  .shift-ML, .shift-M-L { background: #fce7f3 !important; color: #831843 !important; border-color: #fbcfe8 !important; }
   .shift-N              { background: #dbeafe !important; color: #1e3a8a !important; border-color: #bfdbfe !important; }
   .shift-7-5            { background: #ede9fe !important; color: #4c1d95 !important; border-color: #ddd6fe !important; }
   .shift-8-5-3,
