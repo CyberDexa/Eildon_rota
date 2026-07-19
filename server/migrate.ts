@@ -14,9 +14,21 @@ async function migrate() {
       shift_preference              TEXT    DEFAULT 'Mixed',
       is_qualified_for_shift_leader BOOLEAN DEFAULT FALSE,
       is_qualified_for_kitchen      BOOLEAN DEFAULT FALSE,
+      is_qualified_for_activities   BOOLEAN DEFAULT FALSE,
+      is_qualified_for_domestic_laundry BOOLEAN DEFAULT FALSE,
       staff_ref                     TEXT,
       default_pattern               JSONB   NOT NULL DEFAULT '{}'
     )
+  `;
+
+  await sql`
+    ALTER TABLE staff
+    ADD COLUMN IF NOT EXISTS is_qualified_for_activities BOOLEAN DEFAULT FALSE
+  `;
+
+  await sql`
+    ALTER TABLE staff
+    ADD COLUMN IF NOT EXISTS is_qualified_for_domestic_laundry BOOLEAN DEFAULT FALSE
   `;
 
   await sql`
@@ -78,12 +90,15 @@ async function migrate() {
         INSERT INTO staff
           (id, name, role, contracted_hours, shift_preference,
            is_qualified_for_shift_leader, is_qualified_for_kitchen,
+           is_qualified_for_activities, is_qualified_for_domestic_laundry,
            staff_ref, default_pattern)
         VALUES (
           ${s.id}, ${s.name}, ${s.role}, ${s.contractedHours},
           ${s.shiftPreference ?? 'Mixed'},
           ${s.isQualifiedForShiftLeader ?? false},
           ${s.isQualifiedForKitchen ?? false},
+          ${s.isQualifiedForActivities ?? false},
+          ${s.isQualifiedForDomesticLaundry ?? false},
           ${s.staffRef ?? null},
           ${JSON.stringify(s.defaultPattern)}::jsonb
         )

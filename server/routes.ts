@@ -15,6 +15,8 @@ function rowToStaff(row: Record<string, unknown>): Staff {
     shiftPreference: row.shift_preference as Staff['shiftPreference'],
     isQualifiedForShiftLeader: Boolean(row.is_qualified_for_shift_leader),
     isQualifiedForKitchen: Boolean(row.is_qualified_for_kitchen),
+    isQualifiedForActivities: Boolean(row.is_qualified_for_activities),
+    isQualifiedForDomesticLaundry: Boolean(row.is_qualified_for_domestic_laundry),
     staffRef: (row.staff_ref as string | null) ?? undefined,
     // JSON keys come back as strings from Postgres — convert to numbers
     defaultPattern: Object.fromEntries(
@@ -53,12 +55,15 @@ router.post('/staff', async (req, res) => {
       INSERT INTO staff
         (id, name, role, contracted_hours, shift_preference,
          is_qualified_for_shift_leader, is_qualified_for_kitchen,
+         is_qualified_for_activities, is_qualified_for_domestic_laundry,
          staff_ref, default_pattern)
       VALUES (
         ${s.id}, ${s.name}, ${s.role}, ${s.contractedHours},
         ${s.shiftPreference ?? 'Mixed'},
         ${s.isQualifiedForShiftLeader ?? false},
         ${s.isQualifiedForKitchen ?? false},
+        ${s.isQualifiedForActivities ?? false},
+        ${s.isQualifiedForDomesticLaundry ?? false},
         ${s.staffRef ?? null},
         ${JSON.stringify(s.defaultPattern)}::jsonb
       )
@@ -92,6 +97,8 @@ router.put('/staff/:id', async (req, res) => {
         shift_preference              = ${m.shiftPreference ?? 'Mixed'},
         is_qualified_for_shift_leader = ${m.isQualifiedForShiftLeader ?? false},
         is_qualified_for_kitchen      = ${m.isQualifiedForKitchen ?? false},
+        is_qualified_for_activities   = ${m.isQualifiedForActivities ?? false},
+        is_qualified_for_domestic_laundry = ${m.isQualifiedForDomesticLaundry ?? false},
         staff_ref                     = ${m.staffRef ?? null},
         default_pattern               = ${JSON.stringify(m.defaultPattern)}::jsonb
       WHERE id = ${id}
