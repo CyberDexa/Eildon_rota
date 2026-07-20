@@ -823,6 +823,121 @@ button, input, select, textarea {
 /* No-print: visible on screen, hidden when printing */
 .no-print { /* used in JS — print media hides it */ }
 
+/* ─── Drag and Drop ────────────────────────────────────────── */
+.shift-cell-inner.dragging {
+  opacity: 0.4;
+}
+
+td.drop-target {
+  background: rgba(99, 102, 241, 0.08) !important;
+  outline: 2px dashed var(--primary);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+
+/* ─── Quick Reassign Button ────────────────────────────────── */
+.shift-reassign-btn {
+  position: absolute;
+  bottom: -3px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.6rem;
+  padding: 1px 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 5;
+  line-height: 1.4;
+  font-weight: 700;
+}
+
+.shift-cell-inner:hover .shift-reassign-btn {
+  opacity: 1;
+}
+
+.shift-reassign-btn:hover {
+  background: #4f46e5;
+  transform: translateX(-50%) scale(1.1);
+}
+
+/* ─── Reassign Popover ─────────────────────────────────────── */
+.reassign-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 998;
+}
+
+.reassign-popover {
+  position: absolute;
+  z-index: 999;
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.18);
+  min-width: 200px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 0.5rem;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 4px;
+}
+
+.reassign-popover-header {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.3rem 0.5rem 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 0.25rem;
+}
+
+.reassign-popover-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0.4rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-weight: 500;
+  transition: background 0.1s;
+}
+
+.reassign-popover-item:hover {
+  background: var(--primary-glow);
+}
+
+.reassign-popover-role {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-left: 0.3rem;
+}
+
+.reassign-popover-divider {
+  border-top: 1px solid var(--border-color);
+  margin: 0.3rem 0;
+}
+
+.reassign-popover-shortage {
+  color: var(--danger);
+  font-weight: 600;
+}
+
 /* ============================================================
    @media print — clean A4 landscape rota printout
    ============================================================ */

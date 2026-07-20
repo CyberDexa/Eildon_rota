@@ -1,10 +1,9 @@
 import 'dotenv/config';
+import { fileURLToPath } from 'url';
 import { sql } from './db.js';
 import bcrypt from 'bcryptjs';
 
-async function migrate() {
-  console.log('▶ Running migrations…');
-
+export async function migrate() {
   await sql`
     CREATE TABLE IF NOT EXISTS staff (
       id                            TEXT    PRIMARY KEY,
@@ -59,8 +58,6 @@ async function migrate() {
     )
   `;
 
-  console.log('  ✓ Tables ready');
-
   // ── Seed manager account ──────────────────────────────────────────────────
   const [{ userCount }] = await sql`SELECT COUNT(*)::int AS "userCount" FROM users`;
   if (Number(userCount) === 0) {
@@ -72,7 +69,6 @@ async function migrate() {
       ON CONFLICT (id) DO NOTHING
     `;
     console.log(`  ✓ Manager account created  (username: manager  |  password: ${initialPwd})`);
-    console.log('  ⚠  Change this password after first login!');
   } else {
     console.log('  ℹ Users table already populated — skipping seed');
   }
@@ -82,7 +78,6 @@ async function migrate() {
   if (Number(staffCount) > 0) {
     console.log(`  ℹ Staff table has ${staffCount} records — skipping seed`);
   } else {
-    console.log('  ▶ Seeding initial staff…');
     const { INITIAL_STAFF } = await import('../src/data/initialData.js');
 
     for (const s of INITIAL_STAFF) {
@@ -114,12 +109,18 @@ async function migrate() {
     `;
     console.log(`  ✓ Seeded ${INITIAL_STAFF.length} staff members + 2 sample holidays`);
   }
-
-  console.log('✓ Migration complete');
-  process.exit(0);
 }
 
-migrate().catch((err) => {
-  console.error('✗ Migration failed:', err);
-  process.exit(1);
-});
+// Allow running as a standalone script: `npx tsx server/migrate.ts`
+const __filename = fileURLToPath(import.meta.url);
+if (process.argv[1] && (process.argv[1] === __filename || process.argv[1].endsWith('/migrate.ts') || process.argv[1].endsWith('\\migrate.ts'))) {
+  migrate()
+    .then(() => {
+      console.log('✓ Migration complete');
+      process.exit(0);
+    })
+    .catch((err) => {
+      console.error('✗ Migration failed:', err);
+      process.exit(1);
+    });
+}

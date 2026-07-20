@@ -10,8 +10,18 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = Number(process.env.PORT ?? 3001);
 
-app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:4173'] }));
+const allowedOrigins = process.env.NODE_ENV === 'production'
+  ? true
+  : ['http://localhost:5173', 'http://localhost:4173'];
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
+
+// Run DB migration on startup (idempotent — uses IF NOT EXISTS)
+async function init() {
+  const { migrate } = await import('./migrate.js');
+  await migrate();
+}
+init().catch((err) => console.error('[init] Migration failed:', err));
 
 // Public auth routes (login, etc.)
 app.use('/api/auth', authRouter);

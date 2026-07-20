@@ -1,4 +1,4 @@
-import type { Staff, ShiftDefinition } from '../types';
+import type { Staff, ShiftDefinition } from '../types.js';
 
 export const SHIFT_DEFINITIONS: Record<string, ShiftDefinition> = {
   'E/L': {

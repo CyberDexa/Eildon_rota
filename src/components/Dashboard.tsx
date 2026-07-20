@@ -61,6 +61,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
     currentShift: RotaShift | undefined;
   } | null>(null);
 
+  // Drag-and-drop state for reassigning cover shifts
+  const [dragSource, setDragSource] = useState<{ date: string; staffId: string; shift: RotaShift } | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ date: string; staffId: string } | null>(null);
+
+  // Quick reassign popover for cover shifts
+  const [reassignPopover, setReassignPopover] = useState<{ date: string; staffId: string; shift: RotaShift } | null>(null);
+
   // Modal for adding staff
   const [showAddStaffModal, setShowAddStaffModal] = useState(false);
 
@@ -138,7 +145,72 @@ export const Dashboard: React.FC<DashboardProps> = ({
     (s) => roleFilter === 'ALL' || s.role === roleFilter
   );
 
-  // Shift Cell Modal Handlers
+  // ─── Drag-and-Drop Handlers ──────────────────────────────────────────────────
+
+  const handleDragStart = (e: React.DragEvent, date: string, staffId: string, shift: RotaShift) => {
+    setDragSource({ date, staffId, shift });
+    e.dataTransfer.setData('text/plain', JSON.stringify({ date, staffId }));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, date: string, staffId: string) => {
+    if (!dragSource) return;
+    if (dragSource.date !== date || dragSource.staffId === staffId) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDropTarget({ date, staffId });
+  };
+
+  const handleDragLeave = () => setDropTarget(null);
+
+  const handleDrop = (e: React.DragEvent, targetDate: string, targetStaffId: string) => {
+    e.preventDefault();
+    setDropTarget(null);
+    if (!dragSource || dragSource.date !== targetDate || dragSource.staffId === targetStaffId) return;
+    handleReassignCover(dragSource.date, dragSource.staffId, dragSource.shift, targetStaffId);
+    setDragSource(null);
+  };
+
+  const handleDragEnd = () => {
+    setDragSource(null);
+    setDropTarget(null);
+  };
+
+  // ─── Reassign Cover ──────────────────────────────────────────────────────────
+
+  const handleReassignCover = (date: string, sourceStaffId: string, shift: RotaShift, targetStaffId: string) => {
+    if (targetStaffId === 'SHORTAGE') {
+      onApplyOverride(date, sourceStaffId, {
+        staffId: '',
+        shiftLabel: shift.shiftLabel,
+        isCover: true,
+        coverReason: 'Shortage',
+        originalStaffId: shift.originalStaffId ?? sourceStaffId,
+        isManualOverride: true,
+      });
+    } else {
+      // Reset source (holiday person) so their cell shows HOLIDAY
+      onApplyOverride(date, sourceStaffId, {
+        staffId: sourceStaffId,
+        shiftLabel: '',
+        isCover: false,
+        isManualOverride: true,
+      });
+      // Assign the cover shift to the target staff member
+      onApplyOverride(date, targetStaffId, {
+        staffId: targetStaffId,
+        shiftLabel: shift.shiftLabel,
+        isCover: true,
+        coverReason: 'Holiday',
+        originalStaffId: shift.originalStaffId ?? sourceStaffId,
+        isManualOverride: true,
+      });
+    }
+    setReassignPopover(null);
+  };
+
+  // ─── Cell Modal Handlers ─────────────────────────────────────────────────────
+
   const handleCellClick = (date: string, staffId: string, shift: RotaShift | undefined) => {
     setEditingCell({ date, staffId, currentShift: shift });
   };
@@ -493,28 +565,55 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         }
 
                         // Check if THIS staff member is covering for someone else today
-                        const coveringRecord = covers.find(
-                          (c) => c.coverStaffId === staff.id && c.date === day.date
-                        );
-                        const coveringFor = coveringRecord
-                          ? staffList.find((s) => s.id === coveringRecord.originalStaffId)
+                        // Uses the rota shift data (which includes manual overrides) rather
+                        // than the covers array, so reassigns via drag-drop show correctly.
+                        const coveringOriginalId = Object.values(day.shifts).find(
+                          (s) => s.staffId === staff.id && s.isCover && s.originalStaffId && s.originalStaffId !== staff.id
+                        )?.originalStaffId;
+                        const coveringFor = coveringOriginalId
+                          ? staffList.find((s) => s.id === coveringOriginalId)
                           : null;
 
                         return (
-                          <td key={day.date} title={coveringFor ? `${staff.name} is covering for ${coveringFor.name} today` : hoverTitle}>
+                          <td
+                            key={day.date}
+                            title={coveringFor ? `${staff.name} is covering for ${coveringFor.name} today` : hoverTitle}
+                            onDragOver={(e) => handleDragOver(e, day.date, staff.id)}
+                            onDragLeave={handleDragLeave}
+                            onDrop={(e) => handleDrop(e, day.date, staff.id)}
+                            className={dropTarget?.date === day.date && dropTarget?.staffId === staff.id ? 'drop-target' : ''}
+                          >
                             <div
-                              className={`shift-cell-inner ${cellClass}${coveringFor ? ' shift-covering-active' : ''}`}
-                              onClick={() => handleCellClick(day.date, staff.id, shift)}
+                              className={`shift-cell-inner ${cellClass}${coveringFor ? ' shift-covering-active' : ''}${dragSource?.date === day.date && dragSource?.staffId === staff.id ? ' dragging' : ''}`}
+                              onClick={() => {
+                                setReassignPopover(null);
+                                handleCellClick(day.date, staff.id, shift);
+                              }}
+                              draggable={!!shift && !isHoliday && shift.coverReason !== 'Shortage'}
+                              onDragStart={(e) => shift && handleDragStart(e, day.date, staff.id, shift)}
+                              onDragEnd={handleDragEnd}
                             >
                               {cellContent || '-'}
-                              {coverLabel && (
+                              {coverLabel && shift?.staffId !== staff.id && (
                                 <span className="shift-cover-original">{coverLabel}</span>
                               )}
                               {coveringFor && (
                                 <span className="shift-covering-label">↔ {coveringFor.name.split(' ')[0]}</span>
                               )}
                               {shift?.isCover && shift.coverReason !== 'Shortage' && (
-                                <span className="shift-cover-badge">C</span>
+                                <>
+                                  <span className="shift-cover-badge">C</span>
+                                  <button
+                                    className="shift-reassign-btn"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setReassignPopover({ date: day.date, staffId: staff.id, shift: shift! });
+                                    }}
+                                    title="Reassign cover to another staff member"
+                                  >
+                                    ↻
+                                  </button>
+                                </>
                               )}
                               {shift?.isManualOverride && (
                                 <span className="shift-cover-badge" style={{ background: '#f59e0b', right: '10px' }}>
@@ -522,6 +621,40 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 </span>
                               )}
                             </div>
+                            {reassignPopover && reassignPopover.date === day.date && reassignPopover.staffId === staff.id && (
+                              <>
+                                <div className="reassign-backdrop" onClick={() => setReassignPopover(null)} />
+                                <div className="reassign-popover" onClick={(e) => e.stopPropagation()}>
+                                  <div className="reassign-popover-header">Reassign Cover</div>
+                                  <div className="reassign-popover-list">
+                                    {staffList
+                                      .filter((s) => s.id !== reassignPopover.shift.staffId && s.id !== reassignPopover.staffId)
+                                      .map((s) => (
+                                        <button
+                                          key={s.id}
+                                          className="reassign-popover-item"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleReassignCover(reassignPopover.date, reassignPopover.staffId, reassignPopover.shift, s.id);
+                                          }}
+                                        >
+                                          {s.name} <span className="reassign-popover-role">{s.role}</span>
+                                        </button>
+                                      ))}
+                                    <div className="reassign-popover-divider" />
+                                    <button
+                                      className="reassign-popover-item reassign-popover-shortage"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleReassignCover(reassignPopover.date, reassignPopover.staffId, reassignPopover.shift, 'SHORTAGE');
+                                      }}
+                                    >
+                                      Mark as Shortage (Uncovered)
+                                    </button>
+                                  </div>
+                                </div>
+                              </>
+                            )}
                           </td>
                         );
                       })}
