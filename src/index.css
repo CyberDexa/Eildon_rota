@@ -939,6 +939,209 @@ td.drop-target {
 }
 
 /* ============================================================
+   📱 Mobile Responsive — breakpoints: 768px, 480px
+   ============================================================ */
+
+/* Tablet and below */
+@media (max-width: 768px) {
+  .app-navbar {
+    padding: 0.6rem 0.75rem;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .brand-section { gap: 0.5rem; }
+  .brand-logo { width: 1.75rem; height: 1.75rem; font-size: 1rem; }
+  .brand-title h1 { font-size: 0.95rem; }
+  .brand-title span { display: none; }
+
+  .nav-tabs {
+    order: 3;
+    width: 100%;
+    overflow-x: auto;
+    gap: 0.25rem;
+    padding: 0.2rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .nav-tabs::-webkit-scrollbar { display: none; }
+  .tab-btn {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.72rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .main-content { padding: 0.75rem; }
+
+  .glass-card { padding: 0.75rem; margin-bottom: 1rem; }
+
+  .card-header-flex {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+  .card-header-flex h2 { font-size: 1rem; }
+
+  .controls-bar {
+    flex-direction: column;
+    width: 100%;
+    gap: 0.5rem;
+  }
+  .controls-bar .btn,
+  .controls-bar .select-control {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  .stat-box { padding: 0.6rem; }
+  .stat-val { font-size: 1.15rem; }
+  .stat-label { font-size: 0.65rem; }
+
+  .staff-col {
+    width: 100px;
+    min-width: 100px;
+    font-size: 0.7rem;
+  }
+  .staff-role-badge { display: none; }
+
+  .rota-table th,
+  .rota-table td {
+    padding: 0.3rem 0.35rem;
+    font-size: 0.7rem;
+  }
+  .rota-table th { font-size: 0.6rem; }
+
+  .shift-cell-inner {
+    min-height: 30px;
+    padding: 0.15rem 0.2rem;
+    font-size: 0.65rem;
+  }
+
+  .shift-cover-badge { display: none; }
+  .shift-covering-label { display: none; }
+  .shift-cover-original { display: none; }
+  .shift-reassign-btn { display: none; }
+
+  .week-selector-bar {
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .week-btn-group {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .week-btn-group::-webkit-scrollbar { display: none; }
+  .week-btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.65rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .staffing-summary-section > div:not(.no-print) {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 0.35rem !important;
+  }
+  .staffing-summary-section .stat-box {
+    padding: 0.5rem !important;
+    font-size: 0.6rem !important;
+  }
+
+  .modal-content {
+    margin: 0.75rem;
+    padding: 1rem;
+    max-width: none;
+  }
+  .modal-title { font-size: 1.15rem; }
+  .modal-actions { flex-direction: column; }
+  .modal-actions .btn { width: 100%; justify-content: center; }
+
+  .split-layout { gap: 1rem; }
+
+  .table-simple th,
+  .table-simple td {
+    padding: 0.4rem;
+    font-size: 0.7rem;
+  }
+
+  .legend-container { gap: 0.35rem; }
+  .legend-item { font-size: 0.6rem; }
+
+  .reassign-popover {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    min-width: 260px;
+    max-width: 90vw;
+    max-height: 60vh;
+  }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+  .app-navbar { padding: 0.4rem 0.5rem; }
+  .brand-title h1 { font-size: 0.85rem; }
+  .brand-logo { width: 1.5rem; height: 1.5rem; font-size: 0.85rem; }
+
+  .main-content { padding: 0.5rem; }
+
+  .glass-card { padding: 0.5rem; border-radius: var(--radius-md); }
+
+  .stats-grid { grid-template-columns: 1fr 1fr; gap: 0.35rem; }
+  .stat-box { padding: 0.4rem; }
+  .stat-val { font-size: 1rem; }
+
+  .staff-col {
+    width: 75px;
+    min-width: 75px;
+    font-size: 0.6rem;
+  }
+
+  .rota-table th,
+  .rota-table td {
+    padding: 0.2rem 0.2rem;
+    font-size: 0.6rem;
+  }
+
+  .shift-cell-inner {
+    min-height: 24px;
+    font-size: 0.55rem;
+    padding: 0.1rem 0.15rem;
+  }
+
+  .controls-bar .btn,
+  .controls-bar .select-control {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.75rem;
+  }
+
+  .tab-btn {
+    padding: 0.25rem 0.45rem;
+    font-size: 0.65rem;
+  }
+
+  .week-btn { font-size: 0.6rem; padding: 0.2rem 0.4rem; }
+
+  .staffing-summary-section > div:not(.no-print) {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 0.25rem !important;
+  }
+  .staffing-summary-section .stat-box {
+    padding: 0.35rem !important;
+    font-size: 0.55rem !important;
+  }
+}
+
+/* ============================================================
    @media print — clean A4 landscape rota printout
    ============================================================ */
 @media print {
