@@ -7,15 +7,17 @@ interface DashboardProps {
   staffList: Staff[];
   holidays: Holiday[];
   covers: CoverRecord[];
+  coverOptions: Record<string, string[]>;
   rota: DayRota[];
   onAddHoliday: (holiday: Omit<Holiday, 'id'>) => void;
   onRemoveHoliday: (id: string) => void;
   onAddStaff: (staff: Omit<Staff, 'id'>) => void;
   onRemoveStaff: (id: string) => void;
   onApplyOverride: (date: string, staffId: string, override: RotaShift | null) => void;
-  onResetOverrides: () => void;
+  onResetOverrides: (startDate: string, endDate: string) => Promise<void>;
+  onRebuildWeek: (startDate: string, endDate: string) => void;
   onUpdateStaff: (id: string, updates: Partial<Omit<Staff, 'id'>>) => void;
-  manualOverridesCount: number;
+  manualOverrides: Record<string, Record<string, RotaShift>>;
   currentUser: User;
   onLogout: () => void;
   rotaStartDate: string;
@@ -26,6 +28,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   staffList,
   holidays,
   covers,
+  coverOptions,
   rota,
   onAddHoliday,
   onRemoveHoliday,
@@ -33,8 +36,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onRemoveStaff,
   onApplyOverride,
   onResetOverrides,
+  onRebuildWeek,
   onUpdateStaff,
-  manualOverridesCount,
+  manualOverrides,
   currentUser,
   onLogout,
   rotaStartDate,
@@ -42,6 +46,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
 }) => {
   // Navigation Tabs
   const [activeTab, setActiveTab] = useState<'rota' | 'staff' | 'holidays' | 'stats' | 'users'>('rota');
+  const [showReshuffleModal, setShowReshuffleModal] = useState(false);
+  const [reshuffleMode, setReshuffleMode] = useState<'covers' | 'week'>('covers');
+  const [reshuffleChoices, setReshuffleChoices] = useState<Record<string, string>>({});
 
   // User management state (manager only)
   const [sysUsers, setSysUsers] = useState<(User & { created_at: string })[]>([]);
@@ -105,6 +112,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const weekStartDates = [0, 1, 2, 3].map((i) => addDays(rotaStartDate, i * 7));
+  const selectedWeekStart = weekStartDates[selectedWeek];
+  const selectedWeekEnd = addDays(selectedWeekStart, 7);
+  const selectedWeekOverridesCount = Object.entries(manualOverrides).reduce(
+    (count, [date, shifts]) => date >= selectedWeekStart && date < selectedWeekEnd
+      ? count + Object.keys(shifts).length
+      : count,
+    0
+  );
 
   const periodLabel = () => {
     const start = new Date(rotaStartDate + 'T00:00:00Z');
@@ -122,6 +137,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   // Filtered rota days for the selected week
   const currentWeekDays = rota.slice(selectedWeek * 7, (selectedWeek + 1) * 7);
+  const holidayCoverItems = currentWeekDays.flatMap((day) =>
+    Object.entries(day.shifts)
+      .filter(([, shift]) => shift.isCover && shift.originalStaffId && shift.coverReason === 'Holiday')
+      .map(([originalStaffId, shift]) => ({
+        key: `${day.date}:${originalStaffId}`,
+        date: day.date,
+        originalStaffId,
+        shift,
+        candidates: (coverOptions[`${day.date}:${originalStaffId}`] ?? [])
+          .map((candidateId) => staffList.find((staff) => staff.id === candidateId))
+          .filter((staff): staff is Staff => !!staff),
+      }))
+  );
 
   // Group staff by Role for rendering order
   const rolesOrder: Role[] = [
@@ -459,12 +487,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </select>
                 <button
                   className="btn btn-secondary no-print"
-                  onClick={onResetOverrides}
-                  disabled={manualOverridesCount === 0}
-                  title={manualOverridesCount === 0 ? 'No manual edits to reset (holiday auto-covers are not manual overrides)' : `Reset ${manualOverridesCount} manual cell edit(s)`}
-                  style={{ opacity: manualOverridesCount === 0 ? 0.45 : 1 }}
+                  onClick={() => {
+                    setReshuffleChoices({});
+                    setReshuffleMode('covers');
+                    setShowReshuffleModal(true);
+                  }}
                 >
-                  🔄 Reset Manual Edits {manualOverridesCount > 0 ? `(${manualOverridesCount})` : ''}
+                  ✨ Auto Reshuffle
                 </button>
                 <button
                   className="btn btn-secondary no-print"
@@ -494,6 +523,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </button>
                 ))}
               </div>
+              <button
+                className="btn btn-secondary no-print"
+                onClick={() => void onResetOverrides(selectedWeekStart, selectedWeekEnd)}
+                disabled={selectedWeekOverridesCount === 0}
+                title={selectedWeekOverridesCount === 0
+                  ? 'No manual edits to reset for this week'
+                  : `Reset ${selectedWeekOverridesCount} manual cell edit(s) for this week`}
+              >
+                ↺ Reset This Week{selectedWeekOverridesCount > 0 ? ` (${selectedWeekOverridesCount})` : ''}
+              </button>
             </div>
 
             {/* Grid Table */}
@@ -1252,6 +1291,132 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         )}
       </main>
+
+      {/* AUTO RESHUFFLE MODAL */}
+      {showReshuffleModal && (
+        <div className="modal-overlay" onClick={() => setShowReshuffleModal(false)}>
+          <div
+            className="modal-content reshuffle-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reshuffle-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="modal-title" id="reshuffle-title">Auto Reshuffle Week</h3>
+            <p className="reshuffle-intro">
+              {weekLabel(selectedWeek)} · Manual edits are kept when rebuilding.
+            </p>
+
+            <div className="reshuffle-mode-tabs" role="tablist" aria-label="Reshuffle options">
+              <button
+                className={`btn ${reshuffleMode === 'covers' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setReshuffleMode('covers')}
+                role="tab"
+                aria-selected={reshuffleMode === 'covers'}
+              >
+                Holiday cover options
+              </button>
+              <button
+                className={`btn ${reshuffleMode === 'week' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setReshuffleMode('week')}
+                role="tab"
+                aria-selected={reshuffleMode === 'week'}
+              >
+                Rebuild whole week
+              </button>
+            </div>
+
+            {reshuffleMode === 'covers' ? (
+              <div className="reshuffle-cover-list">
+                {holidayCoverItems.length === 0 ? (
+                  <p className="reshuffle-empty">No holiday cover shifts in this week need reshuffling.</p>
+                ) : holidayCoverItems.map((item) => {
+                  const original = staffList.find((staff) => staff.id === item.originalStaffId);
+                  const assigned = staffList.find((staff) => staff.id === item.shift.staffId);
+                  const alreadyAssigned = new Set(covers
+                    .filter((cover) => cover.date === item.date && cover.originalStaffId !== item.originalStaffId)
+                    .map((cover) => cover.coverStaffId));
+                  const suggestions = item.candidates.filter((candidate) =>
+                    candidate.id !== item.shift.staffId && !alreadyAssigned.has(candidate.id)
+                  );
+                  return (
+                    <div className="reshuffle-cover-item" key={item.key}>
+                      <div className="reshuffle-cover-heading">
+                        <strong>{original?.name ?? 'Staff'} · {new Date(`${item.date}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</strong>
+                        <span>{item.shift.shiftLabel} · {assigned ? `Suggested: ${assigned.name}` : 'No cover currently available'}</span>
+                      </div>
+                      {suggestions.length > 0 ? (
+                        <div className="reshuffle-choice-row">
+                          <label className="form-label" htmlFor={`cover-choice-${item.key}`}>
+                            If declined, choose another eligible cover
+                          </label>
+                          <select
+                            id={`cover-choice-${item.key}`}
+                            className="select-control"
+                            value={reshuffleChoices[item.key] ?? ''}
+                            onChange={(event) => setReshuffleChoices((previous) => ({ ...previous, [item.key]: event.target.value }))}
+                          >
+                            <option value="">Keep suggested cover</option>
+                            {suggestions.map((candidate, index) => (
+                              <option key={candidate.id} value={candidate.id}>
+                                {index + 1}. {candidate.name} ({candidate.role})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : (
+                        <p className="reshuffle-empty">No additional eligible cover suggestions.</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="reshuffle-rebuild-note">
+                <p>Regenerate the selected week from staff default patterns and recalculate holiday cover. Other weeks are unchanged.</p>
+                <p>Existing manual edits in this week are preserved and reapplied after the rebuild. Use <strong>Reset This Week</strong> first if you want those edits removed.</p>
+              </div>
+            )}
+
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setShowReshuffleModal(false)}>Cancel</button>
+              {reshuffleMode === 'covers' ? (
+                <button
+                  className="btn btn-primary"
+                  disabled={!Object.entries(reshuffleChoices).some(([key, value]) => value && holidayCoverItems.some((item) => item.key === key))}
+                  onClick={() => {
+                    holidayCoverItems.forEach((item) => {
+                      const selectedId = reshuffleChoices[item.key];
+                      if (!selectedId) return;
+                      onApplyOverride(item.date, item.originalStaffId, {
+                        staffId: selectedId,
+                        shiftLabel: item.shift.shiftLabel,
+                        isCover: true,
+                        coverReason: 'Holiday',
+                        originalStaffId: item.originalStaffId,
+                        isManualOverride: true,
+                      });
+                    });
+                    setShowReshuffleModal(false);
+                  }}
+                >
+                  Apply cover choices
+                </button>
+              ) : (
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    onRebuildWeek(selectedWeekStart, selectedWeekEnd);
+                    setShowReshuffleModal(false);
+                  }}
+                >
+                  Rebuild selected week
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* OVERRIDE EDIT CELL MODAL */}
       {editingCell && (

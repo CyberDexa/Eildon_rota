@@ -2,6 +2,12 @@ import type { Staff, Holiday, DayRota, RotaShift, CoverRecord, Role } from '../t
 import { SHIFT_DEFINITIONS } from '../data/initialData';
 
 // Rest constraints and date helper utilities
+export const getMondayStartDate = (date: Date = new Date()): string => {
+  const monday = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+  return monday.toISOString().split('T')[0];
+};
+
 export const getDatesInRange = (startDateStr: string, totalDays: number): string[] => {
   const dates: string[] = [];
   const start = new Date(startDateStr);
@@ -49,10 +55,18 @@ export function generateRota(
   holidays: Holiday[],
   manualOverrides: Record<string, Record<string, RotaShift>> = {},
   startDateStr: string = '2026-08-10',
-  totalDays: number = 28
-): { rota: DayRota[]; covers: CoverRecord[] } {
+  totalDays: number = 28,
+  cycleAnchorDate: string = startDateStr,
+  generationSeed = 0,
+  reshuffleRange?: { startDate: string; endDate: string }
+): { rota: DayRota[]; covers: CoverRecord[]; coverOptions: Record<string, string[]> } {
   const dates = getDatesInRange(startDateStr, totalDays);
   const coversList: CoverRecord[] = [];
+  const coverOptions: Record<string, string[]> = {};
+  const staffIdsByDefaultOrder = staffList.map((staff) => staff.id).sort();
+  const generationOffset = staffIdsByDefaultOrder.length
+    ? ((Math.abs(Math.trunc(generationSeed)) + 1) % staffIdsByDefaultOrder.length)
+    : 0;
 
   // Track extra shifts and last cover date for fair rotation
   const coverState: CoverState = {
@@ -70,9 +84,12 @@ export function generateRota(
   const rotaData: Record<string, Record<string, RotaShift>> = {};
 
   // Step 1: Initialize all days with default shift patterns (14-day cycle)
-  dates.forEach((dateStr, idx) => {
+  dates.forEach((dateStr) => {
     rotaData[dateStr] = {};
-    const cycleDayIndex = idx % 14;
+    const daysFromCycleAnchor = Math.round(
+      (Date.parse(`${dateStr}T00:00:00Z`) - Date.parse(`${cycleAnchorDate}T00:00:00Z`)) / 86_400_000
+    );
+    const cycleDayIndex = ((daysFromCycleAnchor % 14) + 14) % 14;
 
     staffList.forEach((staff) => {
       const defaultShift = staff.defaultPattern[cycleDayIndex];
@@ -241,6 +258,17 @@ export function generateRota(
         // 3. Last cover date (older cover date = higher priority / least recently worked extra)
         // 4. Deterministic fallback (id alphabet)
         candidates.sort((a, b) => {
+          if (reshuffleRange && dateStr >= reshuffleRange.startDate && dateStr < reshuffleRange.endDate) {
+            const priority = (id: string) => {
+              const index = staffIdsByDefaultOrder.indexOf(id);
+              return (index - generationOffset + staffIdsByDefaultOrder.length) % staffIdsByDefaultOrder.length;
+            };
+            const aSameRole = a.role === targetRole ? 0 : 1;
+            const bSameRole = b.role === targetRole ? 0 : 1;
+            if (aSameRole !== bSameRole) return aSameRole - bSameRole;
+            return priority(a.id) - priority(b.id);
+          }
+
           const aSameRole = a.role === targetRole ? 0 : 1;
           const bSameRole = b.role === targetRole ? 0 : 1;
           if (aSameRole !== bSameRole) return aSameRole - bSameRole;
@@ -255,6 +283,10 @@ export function generateRota(
 
           return a.id.localeCompare(b.id);
         });
+
+        // Keep the full ranked list so managers can choose an alternative if the first
+        // suggested cover is unavailable.
+        coverOptions[`${dateStr}:${vacantStaffId}`] = candidates.map((candidate) => candidate.id);
 
         // Select the fairest candidate
         const selectedCover = candidates[0];
@@ -361,7 +393,7 @@ export function generateRota(
     };
   });
 
-  return { rota: formattedRota, covers: coversList };
+  return { rota: formattedRota, covers: coversList, coverOptions };
 }
 
 /**

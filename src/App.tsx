@@ -1,9 +1,11 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import type { Staff, Holiday, RotaShift, User } from './types';
-import { generateRota } from './utils/rotaEngine';
+import { generateRota, getMondayStartDate } from './utils/rotaEngine';
 import { Dashboard } from './components/Dashboard';
 import LoginPage from './components/LoginPage';
 import * as api from './api';
+
+const ROTA_PATTERN_ANCHOR = '2026-08-10';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -14,9 +16,11 @@ const App: React.FC = () => {
   const [manualOverrides, setManualOverrides] = useState<Record<string, Record<string, RotaShift>>>({});
   const [loading, setLoading] = useState(false);
   const [dbError, setDbError] = useState<string | null>(null);
+  const [rotaGenerationKey, setRotaGenerationKey] = useState(0);
+  const [reshuffleRange, setReshuffleRange] = useState<{ startDate: string; endDate: string } | null>(null);
 
   // Rota start date — drives which 28 days are generated
-  const [rotaStartDate, setRotaStartDate] = useState('2026-08-10');
+  const [rotaStartDate, setRotaStartDate] = useState(() => getMondayStartDate());
 
   // On mount: check for stored JWT and validate it
   useEffect(() => {
@@ -60,10 +64,31 @@ const App: React.FC = () => {
   }, [currentUser]);
 
   // Rota is computed reactively from the three data sources
-  const { rota, covers } = useMemo(
-    () => generateRota(staffList, holidays, manualOverrides, rotaStartDate),
-    [staffList, holidays, manualOverrides, rotaStartDate]
-  );
+  const { rota, covers, coverOptions } = useMemo(() => {
+    const base = generateRota(staffList, holidays, manualOverrides, rotaStartDate, 28, ROTA_PATTERN_ANCHOR);
+    if (!reshuffleRange || rotaGenerationKey === 0) return base;
+
+    const reshuffled = generateRota(
+      staffList, holidays, manualOverrides, rotaStartDate, 28, ROTA_PATTERN_ANCHOR,
+      rotaGenerationKey, reshuffleRange
+    );
+    const inReshuffledWeek = (date: string) => date >= reshuffleRange.startDate && date < reshuffleRange.endDate;
+    const weekRota = new Map(reshuffled.rota.filter((day) => inReshuffledWeek(day.date)).map((day) => [day.date, day]));
+    const weekCoverOptions = Object.fromEntries(
+      Object.entries(reshuffled.coverOptions).filter(([key]) => inReshuffledWeek(key.slice(0, 10)))
+    );
+    return {
+      rota: base.rota.map((day) => weekRota.get(day.date) ?? day),
+      covers: [
+        ...base.covers.filter((cover) => !inReshuffledWeek(cover.date)),
+        ...reshuffled.covers.filter((cover) => inReshuffledWeek(cover.date)),
+      ],
+      coverOptions: {
+        ...Object.fromEntries(Object.entries(base.coverOptions).filter(([key]) => !inReshuffledWeek(key.slice(0, 10)))),
+        ...weekCoverOptions,
+      },
+    };
+  }, [staffList, holidays, manualOverrides, rotaStartDate, rotaGenerationKey, reshuffleRange]);
 
   // ─── Holiday handlers ─────────────────────────────────────────────────────
 
@@ -148,12 +173,38 @@ const App: React.FC = () => {
     []
   );
 
-  const handleResetOverrides = useCallback(async () => {
-    setManualOverrides({});
+
+  const handleRebuildWeek = useCallback((startDate: string, endDate: string) => {
+    const nextGenerationKey = rotaGenerationKey + 1;
+    const currentRota = generateRota(staffList, holidays, manualOverrides, rotaStartDate, 28, ROTA_PATTERN_ANCHOR);
+    const rebuiltRota = generateRota(
+      staffList, holidays, manualOverrides, rotaStartDate, 28, ROTA_PATTERN_ANCHOR,
+      nextGenerationKey, { startDate, endDate }
+    );
+
+    rebuiltRota.rota
+      .filter((day) => day.date >= startDate && day.date < endDate)
+      .forEach((day) => {
+        const previousDay = currentRota.rota.find((previous) => previous.date === day.date);
+        Object.entries(day.shifts).forEach(([originalStaffId, shift]) => {
+          if (!shift.isCover || !shift.originalStaffId || shift.coverReason !== 'Holiday') return;
+          if (manualOverrides[day.date]?.[originalStaffId]) return;
+          if (previousDay?.shifts[originalStaffId]?.staffId === shift.staffId) return;
+          void handleApplyOverride(day.date, originalStaffId, { ...shift, isManualOverride: true });
+        });
+      });
+
+    setReshuffleRange({ startDate, endDate });
+    setRotaGenerationKey(nextGenerationKey);
+  }, [rotaGenerationKey, staffList, holidays, manualOverrides, rotaStartDate, handleApplyOverride]);
+  const handleResetOverrides = useCallback(async (startDate: string, endDate: string) => {
     try {
-      await api.resetOverrides();
+      await api.resetOverridesForDateRange(startDate, endDate);
+      setManualOverrides((prev) => Object.fromEntries(
+        Object.entries(prev).filter(([date]) => date < startDate || date >= endDate)
+      ));
     } catch {
-      alert('Failed to reset overrides. Please refresh the page.');
+      alert('Failed to reset this week. Please try again.');
     }
   }, []);
 
@@ -204,6 +255,7 @@ const App: React.FC = () => {
       staffList={staffList}
       holidays={holidays}
       covers={covers}
+      coverOptions={coverOptions}
       rota={rota}
       onAddHoliday={handleAddHoliday}
       onRemoveHoliday={handleRemoveHoliday}
@@ -212,9 +264,8 @@ const App: React.FC = () => {
       onUpdateStaff={handleUpdateStaff}
       onApplyOverride={handleApplyOverride}
       onResetOverrides={handleResetOverrides}
-      manualOverridesCount={Object.values(manualOverrides).reduce(
-        (sum, day) => sum + Object.keys(day).length, 0
-      )}
+      onRebuildWeek={handleRebuildWeek}
+      manualOverrides={manualOverrides}
       currentUser={currentUser}
       onLogout={handleLogout}
       rotaStartDate={rotaStartDate}

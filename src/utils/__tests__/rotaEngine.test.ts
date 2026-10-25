@@ -1,9 +1,30 @@
 import { describe, it, expect } from 'vitest';
-import { generateRota } from '../rotaEngine';
+import { generateRota, getMondayStartDate } from '../rotaEngine';
 import { INITIAL_STAFF } from '../../data/initialData';
 import type { Holiday, Staff } from '../../types';
 
 describe('Rota Scheduling Engine Tests', () => {
+  it('starts the rota on the Monday of the current calendar week', () => {
+    expect(getMondayStartDate(new Date(2026, 9, 24, 12))).toBe('2026-10-19');
+    expect(getMondayStartDate(new Date(2026, 9, 26, 12))).toBe('2026-10-26');
+  });
+
+  it('preserves the anchored 14-day staff pattern when rolling the rota forward', () => {
+    const staff: Staff[] = [{
+      id: 'pattern-test',
+      name: 'Pattern Test',
+      role: 'Carer',
+      contractedHours: 44,
+      defaultPattern: { 0: 'E/L', 7: 'N' },
+    }];
+
+    const { rota: firstCycleWeek } = generateRota(staff, [], {}, '2026-10-19', 7, '2026-08-10');
+    const { rota: secondCycleWeek } = generateRota(staff, [], {}, '2026-10-26', 7, '2026-08-10');
+
+    expect(firstCycleWeek[0].shifts['pattern-test']?.shiftLabel).toBe('E/L');
+    expect(secondCycleWeek[0].shifts['pattern-test']?.shiftLabel).toBe('N');
+  });
+
   it('should generate default shift patterns correctly', () => {
     const { rota } = generateRota(INITIAL_STAFF, [], {}, '2026-07-20', 7);
 
@@ -19,6 +40,41 @@ describe('Rota Scheduling Engine Tests', () => {
 
     const satShifts = rota[5].shifts;
     expect(satShifts['natasha-t']).toBeUndefined(); // Off
+  });
+
+  it('returns multiple eligible holiday cover candidates in fair ranking order', () => {
+    const staff: Staff[] = [
+      { id: 'nurse-a', name: 'Nurse A', role: 'Staff Nurse', contractedHours: 44, defaultPattern: { 0: 'E/L' } },
+      { id: 'nurse-b', name: 'Nurse B', role: 'Staff Nurse', contractedHours: 44, defaultPattern: {} },
+      { id: 'nurse-c', name: 'Nurse C', role: 'Staff Nurse', contractedHours: 44, defaultPattern: {} },
+    ];
+    const holiday: Holiday = {
+      id: 'h-ranked-cover', staffId: 'nurse-a', startDate: '2026-07-20', endDate: '2026-07-20',
+    };
+
+    const { rota, coverOptions } = generateRota(staff, [holiday], {}, '2026-07-20', 7);
+
+    expect(rota[0].shifts['nurse-a']?.staffId).toBe('nurse-b');
+    expect(coverOptions['2026-07-20:nurse-a']).toEqual(['nurse-b', 'nurse-c']);
+  });
+
+  it('changes the recommended cover on a seeded rebuild while keeping the eligible list', () => {
+    const staff: Staff[] = [
+      { id: 'nurse-a', name: 'Nurse A', role: 'Staff Nurse', contractedHours: 44, defaultPattern: { 0: 'E/L' } },
+      { id: 'nurse-b', name: 'Nurse B', role: 'Staff Nurse', contractedHours: 44, defaultPattern: {} },
+      { id: 'nurse-c', name: 'Nurse C', role: 'Staff Nurse', contractedHours: 44, defaultPattern: {} },
+    ];
+    const holiday: Holiday = {
+      id: 'h-reshuffled-cover', staffId: 'nurse-a', startDate: '2026-07-20', endDate: '2026-07-20',
+    };
+
+    const { rota, coverOptions } = generateRota(
+      staff, [holiday], {}, '2026-07-20', 7, '2026-07-20', 1,
+      { startDate: '2026-07-20', endDate: '2026-07-27' }
+    );
+
+    expect(rota[0].shifts['nurse-a']?.staffId).toBe('nurse-c');
+    expect(coverOptions['2026-07-20:nurse-a']).toEqual(['nurse-c', 'nurse-b']);
   });
 
   it('should automatically assign cover when a working staff member goes on holiday', () => {

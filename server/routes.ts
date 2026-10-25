@@ -209,6 +209,17 @@ router.delete('/overrides/single', async (req, res) => {
   }
 });
 
+router.delete('/overrides/week', async (req, res) => {
+  try {
+    const { startDate, endDate } = req.body as { startDate: string; endDate: string };
+    await sql`DELETE FROM manual_overrides WHERE date >= ${startDate} AND date < ${endDate}`;
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[DELETE /overrides/week]', err);
+    res.status(500).json({ error: 'Failed to reset overrides for this week' });
+  }
+});
+
 router.delete('/overrides/all', async (_req, res) => {
   try {
     await sql`DELETE FROM manual_overrides`;
