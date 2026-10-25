@@ -86,4 +86,9 @@ export const deleteOverride = (date: string, staffId: string) =>
   });
 export const resetOverrides = () =>
   request<{ success: boolean }>('/overrides/all', { method: 'DELETE' });
+export const resetOverridesForDateRange = (startDate: string, endDate: string) =>
+  request<{ success: boolean }>('/overrides/week', {
+    method: 'DELETE',
+    body: JSON.stringify({ startDate, endDate }),
+  });
 
