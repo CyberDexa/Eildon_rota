@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { Staff, Holiday, DayRota, RotaShift, CoverRecord, Role, User } from '../types';
 import { autoGeneratePattern } from '../utils/rotaEngine';
+import { RotaChat } from './RotaChat';
 import * as api from '../api';
 
 interface DashboardProps {
@@ -1681,6 +1682,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
       )}
+      {/* AI ROTA ASSISTANT — reasons over the live rota passed below */}
+      <RotaChat
+        staffList={staffList}
+        holidays={holidays}
+        rota={rota}
+        covers={covers}
+        manualOverrides={manualOverrides}
+        rotaStartDate={rotaStartDate}
+        selectedWeek={selectedWeek}
+      />
+
     </div>
   );
 };
