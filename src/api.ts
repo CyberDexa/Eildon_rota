@@ -1,4 +1,4 @@
-import type { Staff, Holiday, RotaShift, User } from './types';
+import type { Staff, Holiday, RotaShift, User, ChatMessage, RotaChatContext } from './types';
 
 const BASE = '/api';
 const TOKEN_KEY = 'eildon_auth_token';
@@ -90,5 +90,13 @@ export const resetOverridesForDateRange = (startDate: string, endDate: string) =
   request<{ success: boolean }>('/overrides/week', {
     method: 'DELETE',
     body: JSON.stringify({ startDate, endDate }),
+  });
+
+// ─── AI Rota Assistant ────────────────────────────────────────────────────────
+
+export const sendChatMessage = (messages: ChatMessage[], context: RotaChatContext) =>
+  request<{ reply: string }>('/chat', {
+    method: 'POST',
+    body: JSON.stringify({ messages, context }),
   });
 

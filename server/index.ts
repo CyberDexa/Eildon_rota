@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { router } from './routes.js';
 import { authRouter, requireAuth } from './auth.js';
+import { chatRouter } from './chat.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -25,6 +26,9 @@ init().catch((err) => console.error('[init] Migration failed:', err));
 
 // Public auth routes (login, etc.)
 app.use('/api/auth', authRouter);
+
+// AI rota assistant — protected, the OpenAI key stays on the server
+app.use('/api/chat', requireAuth, chatRouter);
 
 // All rota data routes are protected — must be logged in
 app.use('/api', requireAuth, router);

@@ -80,3 +80,46 @@ export interface User {
   username: string;
   role: 'manager' | 'user';
 }
+
+// ─── AI Rota Assistant ────────────────────────────────────────────────────────
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface RotaChatStaff {
+  name: string;
+  role: Role;
+  contractedHours: number;
+  shiftPreference: string;
+  staffRef?: string;
+  qualifications: string[];
+}
+
+export interface RotaChatDay {
+  date: string;
+  weekday: string;
+  required: { earlies: number; lates: number; nights: number };
+  scheduled: { earlies: number; lates: number; nights: number };
+  shortages: { staff: string; role: Role; shift: string }[];
+  holidayCover: { for: string; working: string | null; shift: string }[];
+  onHoliday: string[];
+}
+
+/** Compact snapshot of the live rota handed to the assistant as ground truth. */
+export interface RotaChatContext {
+  today: string;
+  periodStart: string;
+  periodEnd: string;
+  focusWeek: { index: number; startDate: string; endDate: string; dates: string[] };
+  requirements: { earlies: number; lates: number; nights: number };
+  staff: RotaChatStaff[];
+  days: RotaChatDay[];
+  focusedWeekWorking: { date: string; working: string[] }[];
+  /** One row per person, keyed by date (YYYY-MM-DD) so nothing needs aligning. */
+  focusWeekByStaff: { staff: string; shifts: Record<string, string> }[];
+  holidays: { staff: string; startDate: string; endDate: string }[];
+  coverLoad: { staff: string; coverShifts: number }[];
+  manualEdits: number;
+}
