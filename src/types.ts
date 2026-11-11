@@ -107,6 +107,15 @@ export interface RotaChatDay {
   onHoliday: string[];
 }
 
+/** A cover proposal from the AI reshuffle helper, already checked against the snapshot. */
+export interface AiCoverSuggestion {
+  date: string;
+  shift: string;
+  absentStaff: string;
+  coverStaff: string;
+  reason: string;
+}
+
 /** Compact snapshot of the live rota handed to the assistant as ground truth. */
 export interface RotaChatContext {
   today: string;

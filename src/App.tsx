@@ -175,28 +175,12 @@ const App: React.FC = () => {
 
 
   const handleRebuildWeek = useCallback((startDate: string, endDate: string) => {
-    const nextGenerationKey = rotaGenerationKey + 1;
-    const currentRota = generateRota(staffList, holidays, manualOverrides, rotaStartDate, 28, ROTA_PATTERN_ANCHOR);
-    const rebuiltRota = generateRota(
-      staffList, holidays, manualOverrides, rotaStartDate, 28, ROTA_PATTERN_ANCHOR,
-      nextGenerationKey, { startDate, endDate }
-    );
-
-    rebuiltRota.rota
-      .filter((day) => day.date >= startDate && day.date < endDate)
-      .forEach((day) => {
-        const previousDay = currentRota.rota.find((previous) => previous.date === day.date);
-        Object.entries(day.shifts).forEach(([originalStaffId, shift]) => {
-          if (!shift.isCover || !shift.originalStaffId || shift.coverReason !== 'Holiday') return;
-          if (manualOverrides[day.date]?.[originalStaffId]) return;
-          if (previousDay?.shifts[originalStaffId]?.staffId === shift.staffId) return;
-          void handleApplyOverride(day.date, originalStaffId, { ...shift, isManualOverride: true });
-        });
-      });
-
+    // A rebuild is only a suggestion: show the reshuffled week without saving it,
+    // so nothing is counted as covered until a manager assigns the cover, and
+    // repeated rebuilds keep rotating instead of being pinned by saved overrides.
     setReshuffleRange({ startDate, endDate });
-    setRotaGenerationKey(nextGenerationKey);
-  }, [rotaGenerationKey, staffList, holidays, manualOverrides, rotaStartDate, handleApplyOverride]);
+    setRotaGenerationKey((key) => key + 1);
+  }, []);
   const handleResetOverrides = useCallback(async (startDate: string, endDate: string) => {
     try {
       await api.resetOverridesForDateRange(startDate, endDate);

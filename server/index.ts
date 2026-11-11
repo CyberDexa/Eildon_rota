@@ -6,6 +6,7 @@ import { dirname, join } from 'path';
 import { router } from './routes.js';
 import { authRouter, requireAuth } from './auth.js';
 import { chatRouter } from './chat.js';
+import aiReshuffleRouter from './aiReshuffle.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -29,6 +30,7 @@ app.use('/api/auth', authRouter);
 
 // AI rota assistant — protected, the OpenAI key stays on the server
 app.use('/api/chat', requireAuth, chatRouter);
+app.use('/api/ai-reshuffle', requireAuth, aiReshuffleRouter);
 
 // All rota data routes are protected — must be logged in
 app.use('/api', requireAuth, router);

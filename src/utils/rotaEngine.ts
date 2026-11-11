@@ -343,11 +343,15 @@ export function generateRota(
         (h) => h.staffId === staffId && dateStr >= h.startDate && dateStr <= h.endDate
       );
       if (absent && applied.staffId === staffId && applied.shiftLabel && applied.shiftLabel !== 'Off') {
+        // Keep whatever cover the engine had already found for this holiday shift
+        // (a suggestion counts only once assigned, so this stays honest).
+        const existing = rotaData[dateStr][staffId];
+        const coveredBy = existing?.isCover ? existing.staffId : '';
         rotaData[dateStr][staffId] = {
-          staffId: '',
+          staffId: coveredBy,
           shiftLabel: applied.shiftLabel,
           isCover: true,
-          coverReason: 'Shortage',
+          coverReason: coveredBy ? 'Holiday' : 'Shortage',
           originalStaffId: staffId,
           isManualOverride: true,
         };
