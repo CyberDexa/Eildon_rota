@@ -332,10 +332,29 @@ export function generateRota(
     if (!rotaData[dateStr]) rotaData[dateStr] = {};
 
     Object.keys(manualOverrides[dateStr]).forEach((staffId) => {
-      rotaData[dateStr][staffId] = {
+      const applied = {
         ...rotaData[dateStr][staffId],
         ...manualOverrides[dateStr][staffId],
       };
+
+      // A holiday is a hard constraint: a manual edit cannot put an absent person
+      // back on the rota. Keep the shift as a vacancy that still needs cover.
+      const absent = holidays.some(
+        (h) => h.staffId === staffId && dateStr >= h.startDate && dateStr <= h.endDate
+      );
+      if (absent && applied.staffId === staffId && applied.shiftLabel && applied.shiftLabel !== 'Off') {
+        rotaData[dateStr][staffId] = {
+          staffId: '',
+          shiftLabel: applied.shiftLabel,
+          isCover: true,
+          coverReason: 'Shortage',
+          originalStaffId: staffId,
+          isManualOverride: true,
+        };
+        return;
+      }
+
+      rotaData[dateStr][staffId] = applied;
     });
   });
 
