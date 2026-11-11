@@ -64,6 +64,42 @@ interface RawSuggestion {
 }
 
 /**
+ * The rest and consecutive-day rules a cover must satisfy, on top of what a
+ * person is already doing plus any cover already suggested for them.
+ * Mirrors the engine: no day after a night, no night before a day, and no
+ * fourth day in a row. Returns why the cover is not allowed, or null if fine.
+ */
+export function coverRuleBreach(
+  shifts: Record<string, string>,
+  proposedShifts: Record<string, string>,
+  date: string,
+  shift: string
+): string | null {
+  const labelOn = (day: string) => proposedShifts[day] ?? shifts[day];
+  const known = (day: string) => proposedShifts[day] !== undefined || shifts[day] !== undefined;
+  const target = shiftCategory(shift);
+  const previous = shiftCategory(labelOn(shiftDay(date, -1)));
+  const next = shiftCategory(labelOn(shiftDay(date, 1)));
+
+  if (target === 'Night' && next === 'Day') {
+    return `cannot work a night before their day shift on ${shiftDay(date, 1)}`;
+  }
+  if (target === 'Day' && previous === 'Night') {
+    return `cannot work a day shift straight after a night on ${shiftDay(date, -1)}`;
+  }
+
+  let run = 1;
+  for (let day = shiftDay(date, -1); known(day) && shiftCategory(labelOn(day)) !== 'Off'; day = shiftDay(day, -1)) {
+    run++;
+  }
+  for (let day = shiftDay(date, 1); known(day) && shiftCategory(labelOn(day)) !== 'Off'; day = shiftDay(day, 1)) {
+    run++;
+  }
+  if (run > CONSECUTIVE_DAY_LIMIT) return `would be ${run} days in a row`;
+  return null;
+}
+
+/**
  * Drops anything the model got wrong: unknown people, dates outside the focus
  * week, people who are not off that day, and duplicates. A suggestion only
  * survives if the snapshot itself supports it.
@@ -78,33 +114,13 @@ function validateSuggestions(raw: RawSuggestion[], context: RotaChatContext) {
   // Suggestions accepted so far, per person. They stack on top of the snapshot so
   // a long run cannot be built up one accepted suggestion at a time.
   const proposed = new Map<string, Map<string, string>>();
-  const labelOn = (name: string, date: string): string | undefined =>
-    proposed.get(name)?.get(date) ?? rows.get(name)?.shifts[date];
-
-  /** Rest and consecutive-day checks, mirroring the engine's own rules. */
-  const ruleBreach = (name: string, date: string, shift: string): string | null => {
-    const target = shiftCategory(shift);
-    const previous = shiftCategory(labelOn(name, shiftDay(date, -1)));
-    const next = shiftCategory(labelOn(name, shiftDay(date, 1)));
-
-    if (target === 'Night' && next === 'Day') {
-      return `cannot work a night before their day shift on ${shiftDay(date, 1)}`;
-    }
-    if (target === 'Day' && previous === 'Night') {
-      return `cannot work a day shift straight after a night on ${shiftDay(date, -1)}`;
-    }
-
-    const known = (day: string) => proposed.get(name)?.has(day) || rows.get(name)?.shifts[day] !== undefined;
-    let run = 1;
-    for (let day = shiftDay(date, -1); known(day) && shiftCategory(labelOn(name, day)) !== 'Off'; day = shiftDay(day, -1)) {
-      run++;
-    }
-    for (let day = shiftDay(date, 1); known(day) && shiftCategory(labelOn(name, day)) !== 'Off'; day = shiftDay(day, 1)) {
-      run++;
-    }
-    if (run > CONSECUTIVE_DAY_LIMIT) return `would be ${run} days in a row`;
-    return null;
-  };
+  const ruleBreach = (name: string, date: string, shift: string): string | null =>
+    coverRuleBreach(
+      rows.get(name)?.shifts ?? {},
+      Object.fromEntries(proposed.get(name) ?? []),
+      date,
+      shift
+    );
 
   for (const item of raw) {
     if (!isString(item.date) || !isString(item.shift) || !isString(item.coverStaff)) {
