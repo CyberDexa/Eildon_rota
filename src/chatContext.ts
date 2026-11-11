@@ -105,6 +105,14 @@ export function buildRotaChatContext({
   const focusDays = rota.filter((day) => day.date >= focusStart && day.date <= focusEnd);
   const focusDates = focusDays.map((day) => day.date);
 
+  // The days either side ride along in focusWeekByStaff so rest gaps and runs of
+  // consecutive days can be judged at the edges of the week instead of guessed.
+  const contextDays = [
+    ...rota.filter((day) => day.date === addDays(focusStart, -1)),
+    ...focusDays,
+    ...rota.filter((day) => day.date === addDays(focusEnd, 1)),
+  ];
+
   const focusedWeekWorking = focusDays.map((day) => ({
     date: day.date,
     working: Object.values(day.shifts)
@@ -131,7 +139,7 @@ export function buildRotaChatContext({
   const focusWeekByStaff = staffList.map((staff) => {
     const shifts: Record<string, string> = {};
 
-    for (const day of focusDays) {
+    for (const day of contextDays) {
       const labels: string[] = [];
       const away = isOnHoliday(staff.id, day.date);
 

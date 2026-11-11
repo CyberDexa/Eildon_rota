@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import type { RotaChatContext } from '../src/types.js';
+import type { RotaChatContext, ShiftCategory } from '../src/types.js';
+import { SHIFT_DEFINITIONS } from '../src/data/initialData.js';
 
 const router = Router();
 
@@ -12,17 +13,34 @@ const SYSTEM_PROMPT = `You are a rota manager's assistant for a UK care home. Yo
 Your job: propose cover for days that are below the minimum floor staffing (4 earlies, 4 lates, 3 nights).
 
 Hard rules:
-1. Only use people who are listed in "staff" and whose "focusWeekByStaff" entry for the target date is exactly "Off". Never propose someone whose entry says "Off (holiday)", shows a shift, or contains "covering".
+1. Only use people who are listed in "staff" and whose "focusWeekByStaff" entry for the target date is exactly "Off". Never propose someone whose entry says "Off (holiday)", shows a shift, or contains "covering". Each person's row also lists the day before and after the week: read those dates only for rest and consecutive-day checks, never suggest cover on them.
 2. Match the shift: a day shift (E/L or E/K) needs day-capable care staff (Carer, Shift Leader, Staff Nurse, Bank); a night shift (N) needs night-capable care staff and must respect shiftPreference ("Night" only nights, "Day" never nights).
 3. Never propose someone already working that date, and never propose a person twice for the same date. Cover different days rather than piling everyone onto one date: at most one suggestion per short day unless that day is short by more than one person, and at most one day per person while other eligible people remain. Prefer people with fewer existing cover shifts (see coverLoad). When only one person is eligible all week, still return one suggestion for every short day rather than dropping days.
 4. Each suggestion must name: date (YYYY-MM-DD), shift (the shift label to cover), absentStaff (whose shift it is, or "" if it is extra cover on top), coverStaff (the exact name from the snapshot), reason (one short sentence, max 25 words).
-5. Only propose suggestions that meaningfully help a short day. If no eligible person exists, return no suggestion for that day.
-6. Reply with JSON only, in this shape:
+5. Respect rest and consecutive-day limits. Never give someone a day shift the day after a night shift (or a night shift the day before a day shift). Never let anyone work more than 3 days in a row, counting days already shown in their row; if covering a day would make a run of 4 or more, skip that person.
+6. Only propose suggestions that meaningfully help a short day. If no eligible person exists, return no suggestion for that day.
+7. Reply with JSON only, in this shape:
 {"suggestions":[{"date":"YYYY-MM-DD","shift":"E/L","absentStaff":"Name","coverStaff":"Name","reason":"..."}],"note":"optional one-line summary"}`;
 
 const isString = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0;
 
 const CARE_ROLES = ['Staff Nurse', 'Shift Leader', 'Carer', 'Bank'];
+
+/** Same ceiling the dashboard works to: a run of four or more days is refused. */
+const CONSECUTIVE_DAY_LIMIT = 3;
+
+/** Snapshot values look like "E/L", "N (covering Sam)", "Off (holiday)". */
+const shiftCategory = (value: string | undefined): ShiftCategory => {
+  if (!value) return 'Off';
+  const label = value.trim().split(/\s+/)[0];
+  return SHIFT_DEFINITIONS[label]?.category ?? 'Off';
+};
+
+const shiftDay = (date: string, delta: number): string => {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + delta);
+  return d.toISOString().slice(0, 10);
+};
 
 function validateContext(context: unknown): context is RotaChatContext {
   if (!context || typeof context !== 'object') return false;
@@ -56,6 +74,37 @@ function validateSuggestions(raw: RawSuggestion[], context: RotaChatContext) {
   const seen = new Set<string>();
   const kept = [];
   const rejected: string[] = [];
+
+  // Suggestions accepted so far, per person. They stack on top of the snapshot so
+  // a long run cannot be built up one accepted suggestion at a time.
+  const proposed = new Map<string, Map<string, string>>();
+  const labelOn = (name: string, date: string): string | undefined =>
+    proposed.get(name)?.get(date) ?? rows.get(name)?.shifts[date];
+
+  /** Rest and consecutive-day checks, mirroring the engine's own rules. */
+  const ruleBreach = (name: string, date: string, shift: string): string | null => {
+    const target = shiftCategory(shift);
+    const previous = shiftCategory(labelOn(name, shiftDay(date, -1)));
+    const next = shiftCategory(labelOn(name, shiftDay(date, 1)));
+
+    if (target === 'Night' && next === 'Day') {
+      return `cannot work a night before their day shift on ${shiftDay(date, 1)}`;
+    }
+    if (target === 'Day' && previous === 'Night') {
+      return `cannot work a day shift straight after a night on ${shiftDay(date, -1)}`;
+    }
+
+    const known = (day: string) => proposed.get(name)?.has(day) || rows.get(name)?.shifts[day] !== undefined;
+    let run = 1;
+    for (let day = shiftDay(date, -1); known(day) && shiftCategory(labelOn(name, day)) !== 'Off'; day = shiftDay(day, -1)) {
+      run++;
+    }
+    for (let day = shiftDay(date, 1); known(day) && shiftCategory(labelOn(name, day)) !== 'Off'; day = shiftDay(day, 1)) {
+      run++;
+    }
+    if (run > CONSECUTIVE_DAY_LIMIT) return `would be ${run} days in a row`;
+    return null;
+  };
 
   for (const item of raw) {
     if (!isString(item.date) || !isString(item.shift) || !isString(item.coverStaff)) {
@@ -136,11 +185,19 @@ function validateSuggestions(raw: RawSuggestion[], context: RotaChatContext) {
     ];
     let filled = 0;
     for (const item of orderedList) {
+      const breach = ruleBreach(item.coverStaff, item.date, item.shift);
+      if (breach) {
+        rejected.push(`${item.coverStaff} ${breach} on ${item.date}`);
+        continue;
+      }
       if (filled >= cap) {
         unused.push(item);
         continue;
       }
       suggestions.push(item);
+      const pending = proposed.get(item.coverStaff) ?? new Map<string, string>();
+      pending.set(item.date, item.shift);
+      proposed.set(item.coverStaff, pending);
       used.add(item.coverStaff);
       filled++;
     }

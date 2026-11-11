@@ -126,7 +126,10 @@ export interface RotaChatContext {
   staff: RotaChatStaff[];
   days: RotaChatDay[];
   focusedWeekWorking: { date: string; working: string[] }[];
-  /** One row per person, keyed by date (YYYY-MM-DD) so nothing needs aligning. */
+  /**
+   * One row per person, keyed by date (YYYY-MM-DD) so nothing needs aligning.
+   * Also covers the day before and after the week, for rest and consecutive-day checks.
+   */
   focusWeekByStaff: { staff: string; shifts: Record<string, string> }[];
   holidays: { staff: string; startDate: string; endDate: string }[];
   coverLoad: { staff: string; coverShifts: number }[];
