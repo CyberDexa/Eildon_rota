@@ -6,7 +6,6 @@ const router = Router();
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const DEFAULT_MODEL = 'gpt-4.1-mini';
 const MAX_SUGGESTIONS = 8;
-const MIN_SUGGESTIONS = 3;
 
 const SYSTEM_PROMPT = `You are a rota manager's assistant for a UK care home. You are given a JSON snapshot of one week's rota.
 
@@ -15,7 +14,7 @@ Your job: propose cover for days that are below the minimum floor staffing (4 ea
 Hard rules:
 1. Only use people who are listed in "staff" and whose "focusWeekByStaff" entry for the target date is exactly "Off". Never propose someone whose entry says "Off (holiday)", shows a shift, or contains "covering".
 2. Match the shift: a day shift (E/L or E/K) needs day-capable care staff (Carer, Shift Leader, Staff Nurse, Bank); a night shift (N) needs night-capable care staff and must respect shiftPreference ("Night" only nights, "Day" never nights).
-3. Never propose someone already working that date, and never propose a person twice for the same date. Spread the cover across different people: at most one day per person while other eligible people remain, and prefer people with fewer existing cover shifts (see coverLoad).
+3. Never propose someone already working that date, and never propose a person twice for the same date. Cover different days rather than piling everyone onto one date: at most one suggestion per short day unless that day is short by more than one person, and at most one day per person while other eligible people remain. Prefer people with fewer existing cover shifts (see coverLoad).
 4. Each suggestion must name: date (YYYY-MM-DD), shift (the shift label to cover), absentStaff (whose shift it is, or "" if it is extra cover on top), coverStaff (the exact name from the snapshot), reason (one short sentence, max 25 words).
 5. Only propose suggestions that meaningfully help a short day. If no eligible person exists, return no suggestion for that day.
 6. Reply with JSON only, in this shape:
@@ -105,28 +104,49 @@ function validateSuggestions(raw: RawSuggestion[], context: RotaChatContext) {
     if (kept.length >= MAX_SUGGESTIONS) break;
   }
 
-  // Spread the load: take one day per person first and only reuse someone when
-  // that would otherwise leave the manager with almost nothing to act on.
-  const used = new Set<string>();
-  const firstPick: typeof kept = [];
-  const heldBack: typeof kept = [];
+  // Select date by date, so every short day gets a look-in before anyone covers a
+  // second day, and spread people across the week.
+  const gapFor = (date: string, shift: string) => {
+    const day = context.days.find((entry) => entry.date === date);
+    if (!day) return 1;
+    const wantsNight = shift.trim().toUpperCase() === 'N';
+    const gap = wantsNight
+      ? day.required.nights - day.scheduled.nights
+      : day.required.earlies - day.scheduled.earlies;
+    return Math.max(1, gap);
+  };
+
+  const byDate = new Map<string, typeof kept>();
   for (const item of kept) {
-    if (used.has(item.coverStaff)) {
-      heldBack.push(item);
-    } else {
+    const list = byDate.get(item.date) ?? [];
+    list.push(item);
+    byDate.set(item.date, list);
+  }
+
+  const used = new Set<string>();
+  const suggestions: typeof kept = [];
+  const unused: typeof kept = [];
+
+  for (const date of [...byDate.keys()].sort()) {
+    const list = byDate.get(date)!;
+    const cap = gapFor(date, list[0].shift);
+    const orderedList = [
+      ...list.filter((item) => !used.has(item.coverStaff)),
+      ...list.filter((item) => used.has(item.coverStaff)),
+    ];
+    let filled = 0;
+    for (const item of orderedList) {
+      if (filled >= cap) {
+        unused.push(item);
+        continue;
+      }
+      suggestions.push(item);
       used.add(item.coverStaff);
-      firstPick.push(item);
+      filled++;
     }
   }
 
-  const suggestions = [...firstPick];
-  for (const item of heldBack) {
-    if (suggestions.length >= MIN_SUGGESTIONS) break;
-    suggestions.push(item);
-  }
   suggestions.sort((a, b) => a.date.localeCompare(b.date));
-
-  const unused = heldBack.filter((item) => !suggestions.includes(item));
   return { suggestions, rejected, unused };
 }
 
