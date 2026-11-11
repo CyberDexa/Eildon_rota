@@ -63,10 +63,16 @@ export function generateRota(
   const dates = getDatesInRange(startDateStr, totalDays);
   const coversList: CoverRecord[] = [];
   const coverOptions: Record<string, string[]> = {};
-  const staffIdsByDefaultOrder = staffList.map((staff) => staff.id).sort();
-  const generationOffset = staffIdsByDefaultOrder.length
-    ? ((Math.abs(Math.trunc(generationSeed)) + 1) % staffIdsByDefaultOrder.length)
-    : 0;
+  // Deterministic per-seed key. The old approach rotated the whole candidate
+  // list, which preserved each pair's relative order and so never changed a pick.
+  const reshuffleKey = (id: string): number => {
+    let hash = 2166136261 ^ (Math.abs(Math.trunc(generationSeed)) * 16777619);
+    for (let index = 0; index < id.length; index++) {
+      hash ^= id.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  };
 
   // Track extra shifts and last cover date for fair rotation
   const coverState: CoverState = {
@@ -259,14 +265,10 @@ export function generateRota(
         // 4. Deterministic fallback (id alphabet)
         candidates.sort((a, b) => {
           if (reshuffleRange && dateStr >= reshuffleRange.startDate && dateStr < reshuffleRange.endDate) {
-            const priority = (id: string) => {
-              const index = staffIdsByDefaultOrder.indexOf(id);
-              return (index - generationOffset + staffIdsByDefaultOrder.length) % staffIdsByDefaultOrder.length;
-            };
             const aSameRole = a.role === targetRole ? 0 : 1;
             const bSameRole = b.role === targetRole ? 0 : 1;
             if (aSameRole !== bSameRole) return aSameRole - bSameRole;
-            return priority(a.id) - priority(b.id);
+            return reshuffleKey(a.id) - reshuffleKey(b.id);
           }
 
           const aSameRole = a.role === targetRole ? 0 : 1;

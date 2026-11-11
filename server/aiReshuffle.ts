@@ -22,6 +22,8 @@ Hard rules:
 
 const isString = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0;
 
+const CARE_ROLES = ['Staff Nurse', 'Shift Leader', 'Carer', 'Bank'];
+
 function validateContext(context: unknown): context is RotaChatContext {
   if (!context || typeof context !== 'object') return false;
   const candidate = context as Partial<RotaChatContext>;
@@ -75,6 +77,21 @@ function validateSuggestions(raw: RawSuggestion[], context: RotaChatContext) {
     const row = rows.get(coverStaff);
     if (!row || row.shifts[date] !== 'Off') {
       rejected.push(`${coverStaff} is not off on ${date}`);
+      continue;
+    }
+
+    const person = people.get(coverStaff)!;
+    if (!CARE_ROLES.includes(person.role)) {
+      rejected.push(`${coverStaff} is not floor-care staff`);
+      continue;
+    }
+    const wantsNight = shift.trim().toUpperCase() === 'N';
+    if (wantsNight && person.shiftPreference === 'Day') {
+      rejected.push(`${coverStaff} works day shifts only`);
+      continue;
+    }
+    if (!wantsNight && person.shiftPreference === 'Night') {
+      rejected.push(`${coverStaff} works night shifts only`);
       continue;
     }
     const key = `${date}:${coverStaff}`;
