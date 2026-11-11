@@ -6,6 +6,7 @@ const router = Router();
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const DEFAULT_MODEL = 'gpt-4.1-mini';
 const MAX_SUGGESTIONS = 8;
+const MIN_SUGGESTIONS = 3;
 
 const SYSTEM_PROMPT = `You are a rota manager's assistant for a UK care home. You are given a JSON snapshot of one week's rota.
 
@@ -14,7 +15,7 @@ Your job: propose cover for days that are below the minimum floor staffing (4 ea
 Hard rules:
 1. Only use people who are listed in "staff" and whose "focusWeekByStaff" entry for the target date is exactly "Off". Never propose someone whose entry says "Off (holiday)", shows a shift, or contains "covering".
 2. Match the shift: a day shift (E/L or E/K) needs day-capable care staff (Carer, Shift Leader, Staff Nurse, Bank); a night shift (N) needs night-capable care staff and must respect shiftPreference ("Night" only nights, "Day" never nights).
-3. Never propose someone already working that date, and never propose a person twice for the same date.
+3. Never propose someone already working that date, and never propose a person twice for the same date. Spread the cover across different people: at most one day per person while other eligible people remain, and prefer people with fewer existing cover shifts (see coverLoad).
 4. Each suggestion must name: date (YYYY-MM-DD), shift (the shift label to cover), absentStaff (whose shift it is, or "" if it is extra cover on top), coverStaff (the exact name from the snapshot), reason (one short sentence, max 25 words).
 5. Only propose suggestions that meaningfully help a short day. If no eligible person exists, return no suggestion for that day.
 6. Reply with JSON only, in this shape:
@@ -104,7 +105,29 @@ function validateSuggestions(raw: RawSuggestion[], context: RotaChatContext) {
     if (kept.length >= MAX_SUGGESTIONS) break;
   }
 
-  return { suggestions: kept, rejected };
+  // Spread the load: take one day per person first and only reuse someone when
+  // that would otherwise leave the manager with almost nothing to act on.
+  const used = new Set<string>();
+  const firstPick: typeof kept = [];
+  const heldBack: typeof kept = [];
+  for (const item of kept) {
+    if (used.has(item.coverStaff)) {
+      heldBack.push(item);
+    } else {
+      used.add(item.coverStaff);
+      firstPick.push(item);
+    }
+  }
+
+  const suggestions = [...firstPick];
+  for (const item of heldBack) {
+    if (suggestions.length >= MIN_SUGGESTIONS) break;
+    suggestions.push(item);
+  }
+  suggestions.sort((a, b) => a.date.localeCompare(b.date));
+
+  const unused = heldBack.filter((item) => !suggestions.includes(item));
+  return { suggestions, rejected, unused };
 }
 
 router.post('/suggest', async (req, res) => {
@@ -145,6 +168,7 @@ router.post('/suggest', async (req, res) => {
       unfilled: day.shortages,
     })),
     staff: context.staff,
+    coverLoad: context.coverLoad,
     focusWeekByStaff: context.focusWeekByStaff,
     holidays: context.holidays,
   });
@@ -201,10 +225,13 @@ router.post('/suggest', async (req, res) => {
       return;
     }
 
-    const { suggestions, rejected } = validateSuggestions(parsed.suggestions ?? [], context);
+    const { suggestions, rejected, unused } = validateSuggestions(parsed.suggestions ?? [], context);
+    const spread = unused.length
+      ? `${unused.length} further suggestion(s) held back so the same person is not covering every day.`
+      : undefined;
     res.json({
       suggestions,
-      note: isString(parsed.note) ? parsed.note : undefined,
+      note: [isString(parsed.note) ? parsed.note : undefined, spread].filter(Boolean).join(' ') || undefined,
       rejected: rejected.slice(0, 6),
     });
   } catch (error) {
