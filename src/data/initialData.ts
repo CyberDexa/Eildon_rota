@@ -8,6 +8,15 @@ export const SHIFT_DEFINITIONS: Record<string, ShiftDefinition> = {
     endTime: '19:30',
     hours: 11,
   },
+  // Carer covering kitchen as well as the floor: still a long day, so it counts
+  // toward both earlies and lates exactly like E/L.
+  'E/K': {
+    label: 'E/K',
+    category: 'Day',
+    startTime: '07:30',
+    endTime: '19:30',
+    hours: 11,
+  },
   'ML': {
     label: 'ML',
     category: 'Off',

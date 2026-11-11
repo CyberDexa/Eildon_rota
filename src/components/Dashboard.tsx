@@ -711,6 +711,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <span>Day Shift (E/L)</span>
               </div>
               <div className="legend-item">
+                <div className="legend-color shift-E-K"></div>
+                <span>Day + Kitchen (E/K)</span>
+              </div>
+              <div className="legend-item">
                 <div className="legend-color shift-ML"></div>
                 <span>Maternity Leave (ML)</span>
               </div>
@@ -1438,6 +1442,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <button className="btn btn-secondary" onClick={() => handleApplyOverride('E/L')}>
                   Day Shift (E/L)
                 </button>
+                <button className="btn btn-secondary" onClick={() => handleApplyOverride('E/K')}>
+                  Day + Kitchen (E/K)
+                </button>
                 <button className="btn btn-secondary" onClick={() => handleApplyOverride('N')}>
                   Night Shift (N)
                 </button>
@@ -1616,6 +1623,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       >
                         <option value="">Off</option>
                         <option value="E/L">E/L</option>
+                        <option value="E/K">E/K</option>
                         <option value="ML">ML</option>
                         <option value="N">N</option>
                         <option value="7/5">7/5</option>
@@ -1651,6 +1659,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         >
                           <option value="">Off</option>
                           <option value="E/L">E/L</option>
+                          <option value="E/K">E/K</option>
                           <option value="ML">ML</option>
                           <option value="N">N</option>
                           <option value="7/5">7/5</option>
