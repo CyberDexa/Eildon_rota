@@ -263,14 +263,7 @@ export function generateRota(
         // 2. Extra shifts count (fewer extra shifts worked = higher priority)
         // 3. Last cover date (older cover date = higher priority / least recently worked extra)
         // 4. Deterministic fallback (id alphabet)
-        candidates.sort((a, b) => {
-          if (reshuffleRange && dateStr >= reshuffleRange.startDate && dateStr < reshuffleRange.endDate) {
-            const aSameRole = a.role === targetRole ? 0 : 1;
-            const bSameRole = b.role === targetRole ? 0 : 1;
-            if (aSameRole !== bSameRole) return aSameRole - bSameRole;
-            return reshuffleKey(a.id) - reshuffleKey(b.id);
-          }
-
+        const fairOrder = [...candidates].sort((a, b) => {
           const aSameRole = a.role === targetRole ? 0 : 1;
           const bSameRole = b.role === targetRole ? 0 : 1;
           if (aSameRole !== bSameRole) return aSameRole - bSameRole;
@@ -286,12 +279,31 @@ export function generateRota(
           return a.id.localeCompare(b.id);
         });
 
+        const inReshuffleRange =
+          !!reshuffleRange && dateStr >= reshuffleRange.startDate && dateStr < reshuffleRange.endDate;
+
+        let ordered = fairOrder;
+        if (inReshuffleRange) {
+          const hashed = [...candidates].sort((a, b) => {
+            const aSameRole = a.role === targetRole ? 0 : 1;
+            const bSameRole = b.role === targetRole ? 0 : 1;
+            if (aSameRole !== bSameRole) return aSameRole - bSameRole;
+            return reshuffleKey(a.id) - reshuffleKey(b.id);
+          });
+          // A rebuild should visibly change something: when the seeded order lands on
+          // the same person as the fair pick, start one place further along.
+          ordered =
+            hashed.length > 1 && hashed[0].id === fairOrder[0].id
+              ? [...hashed.slice(1), hashed[0]]
+              : hashed;
+        }
+
         // Keep the full ranked list so managers can choose an alternative if the first
         // suggested cover is unavailable.
-        coverOptions[`${dateStr}:${vacantStaffId}`] = candidates.map((candidate) => candidate.id);
+        coverOptions[`${dateStr}:${vacantStaffId}`] = ordered.map((candidate) => candidate.id);
 
         // Select the fairest candidate
-        const selectedCover = candidates[0];
+        const selectedCover = ordered[0];
 
         // Update cover stats
         coverState.extraShiftsCount[selectedCover.id] = (coverState.extraShiftsCount[selectedCover.id] || 0) + 1;
