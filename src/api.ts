@@ -1,4 +1,12 @@
-import type { Staff, Holiday, RotaShift, User, ChatMessage, RotaChatContext } from './types';
+import type {
+  Staff,
+  Holiday,
+  RotaShift,
+  User,
+  ChatMessage,
+  RotaChatContext,
+  AiCoverSuggestion,
+} from './types';
 
 const BASE = '/api';
 const TOKEN_KEY = 'eildon_auth_token';
@@ -99,4 +107,12 @@ export const sendChatMessage = (messages: ChatMessage[], context: RotaChatContex
     method: 'POST',
     body: JSON.stringify({ messages, context }),
   });
+
+// ─── AI Reshuffle ─────────────────────────────────────────────────────────────
+
+export const suggestAiCovers = (context: RotaChatContext) =>
+  request<{ suggestions: AiCoverSuggestion[]; note?: string; rejected?: string[] }>(
+    '/ai-reshuffle/suggest',
+    { method: 'POST', body: JSON.stringify({ context }) }
+  );
 

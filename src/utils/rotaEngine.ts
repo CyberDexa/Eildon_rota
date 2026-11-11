@@ -63,10 +63,16 @@ export function generateRota(
   const dates = getDatesInRange(startDateStr, totalDays);
   const coversList: CoverRecord[] = [];
   const coverOptions: Record<string, string[]> = {};
-  const staffIdsByDefaultOrder = staffList.map((staff) => staff.id).sort();
-  const generationOffset = staffIdsByDefaultOrder.length
-    ? ((Math.abs(Math.trunc(generationSeed)) + 1) % staffIdsByDefaultOrder.length)
-    : 0;
+  // Deterministic per-seed key. The old approach rotated the whole candidate
+  // list, which preserved each pair's relative order and so never changed a pick.
+  const reshuffleKey = (id: string): number => {
+    let hash = 2166136261 ^ (Math.abs(Math.trunc(generationSeed)) * 16777619);
+    for (let index = 0; index < id.length; index++) {
+      hash ^= id.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  };
 
   // Track extra shifts and last cover date for fair rotation
   const coverState: CoverState = {
@@ -257,18 +263,7 @@ export function generateRota(
         // 2. Extra shifts count (fewer extra shifts worked = higher priority)
         // 3. Last cover date (older cover date = higher priority / least recently worked extra)
         // 4. Deterministic fallback (id alphabet)
-        candidates.sort((a, b) => {
-          if (reshuffleRange && dateStr >= reshuffleRange.startDate && dateStr < reshuffleRange.endDate) {
-            const priority = (id: string) => {
-              const index = staffIdsByDefaultOrder.indexOf(id);
-              return (index - generationOffset + staffIdsByDefaultOrder.length) % staffIdsByDefaultOrder.length;
-            };
-            const aSameRole = a.role === targetRole ? 0 : 1;
-            const bSameRole = b.role === targetRole ? 0 : 1;
-            if (aSameRole !== bSameRole) return aSameRole - bSameRole;
-            return priority(a.id) - priority(b.id);
-          }
-
+        const fairOrder = [...candidates].sort((a, b) => {
           const aSameRole = a.role === targetRole ? 0 : 1;
           const bSameRole = b.role === targetRole ? 0 : 1;
           if (aSameRole !== bSameRole) return aSameRole - bSameRole;
@@ -284,12 +279,31 @@ export function generateRota(
           return a.id.localeCompare(b.id);
         });
 
+        const inReshuffleRange =
+          !!reshuffleRange && dateStr >= reshuffleRange.startDate && dateStr < reshuffleRange.endDate;
+
+        let ordered = fairOrder;
+        if (inReshuffleRange) {
+          const hashed = [...candidates].sort((a, b) => {
+            const aSameRole = a.role === targetRole ? 0 : 1;
+            const bSameRole = b.role === targetRole ? 0 : 1;
+            if (aSameRole !== bSameRole) return aSameRole - bSameRole;
+            return reshuffleKey(a.id) - reshuffleKey(b.id);
+          });
+          // A rebuild should visibly change something: when the seeded order lands on
+          // the same person as the fair pick, start one place further along.
+          ordered =
+            hashed.length > 1 && hashed[0].id === fairOrder[0].id
+              ? [...hashed.slice(1), hashed[0]]
+              : hashed;
+        }
+
         // Keep the full ranked list so managers can choose an alternative if the first
         // suggested cover is unavailable.
-        coverOptions[`${dateStr}:${vacantStaffId}`] = candidates.map((candidate) => candidate.id);
+        coverOptions[`${dateStr}:${vacantStaffId}`] = ordered.map((candidate) => candidate.id);
 
         // Select the fairest candidate
-        const selectedCover = candidates[0];
+        const selectedCover = ordered[0];
 
         // Update cover stats
         coverState.extraShiftsCount[selectedCover.id] = (coverState.extraShiftsCount[selectedCover.id] || 0) + 1;
@@ -332,10 +346,33 @@ export function generateRota(
     if (!rotaData[dateStr]) rotaData[dateStr] = {};
 
     Object.keys(manualOverrides[dateStr]).forEach((staffId) => {
-      rotaData[dateStr][staffId] = {
+      const applied = {
         ...rotaData[dateStr][staffId],
         ...manualOverrides[dateStr][staffId],
       };
+
+      // A holiday is a hard constraint: a manual edit cannot put an absent person
+      // back on the rota. Keep the shift as a vacancy that still needs cover.
+      const absent = holidays.some(
+        (h) => h.staffId === staffId && dateStr >= h.startDate && dateStr <= h.endDate
+      );
+      if (absent && applied.staffId === staffId && applied.shiftLabel && applied.shiftLabel !== 'Off') {
+        // Keep whatever cover the engine had already found for this holiday shift
+        // (a suggestion counts only once assigned, so this stays honest).
+        const existing = rotaData[dateStr][staffId];
+        const coveredBy = existing?.isCover ? existing.staffId : '';
+        rotaData[dateStr][staffId] = {
+          staffId: coveredBy,
+          shiftLabel: applied.shiftLabel,
+          isCover: true,
+          coverReason: coveredBy ? 'Holiday' : 'Shortage',
+          originalStaffId: staffId,
+          isManualOverride: true,
+        };
+        return;
+      }
+
+      rotaData[dateStr][staffId] = applied;
     });
   });
 
@@ -354,6 +391,10 @@ export function generateRota(
 
     Object.values(dayShifts).forEach((s) => {
       if (!s.staffId) return; // Unassigned shift does not count
+
+      // A holiday cover proposed by the engine is only a suggestion. It counts
+      // toward floor staffing once a manager has assigned it on the rota.
+      if (s.isCover && s.coverReason === 'Holiday' && !s.isManualOverride) return;
 
       const def = SHIFT_DEFINITIONS[s.shiftLabel];
       if (!def) return;

@@ -107,6 +107,15 @@ export interface RotaChatDay {
   onHoliday: string[];
 }
 
+/** A cover proposal from the AI reshuffle helper, already checked against the snapshot. */
+export interface AiCoverSuggestion {
+  date: string;
+  shift: string;
+  absentStaff: string;
+  coverStaff: string;
+  reason: string;
+}
+
 /** Compact snapshot of the live rota handed to the assistant as ground truth. */
 export interface RotaChatContext {
   today: string;
@@ -117,7 +126,10 @@ export interface RotaChatContext {
   staff: RotaChatStaff[];
   days: RotaChatDay[];
   focusedWeekWorking: { date: string; working: string[] }[];
-  /** One row per person, keyed by date (YYYY-MM-DD) so nothing needs aligning. */
+  /**
+   * One row per person, keyed by date (YYYY-MM-DD) so nothing needs aligning.
+   * Also covers the day before and after the week, for rest and consecutive-day checks.
+   */
   focusWeekByStaff: { staff: string; shifts: Record<string, string> }[];
   holidays: { staff: string; startDate: string; endDate: string }[];
   coverLoad: { staff: string; coverShifts: number }[];

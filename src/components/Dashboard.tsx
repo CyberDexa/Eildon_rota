@@ -3,6 +3,8 @@ import type { Staff, Holiday, DayRota, RotaShift, CoverRecord, Role, User } from
 import { autoGeneratePattern } from '../utils/rotaEngine';
 import { RotaChat } from './RotaChat';
 import * as api from '../api';
+import { buildRotaChatContext } from '../chatContext';
+import type { AiCoverSuggestion } from '../types';
 
 interface DashboardProps {
   staffList: Staff[];
@@ -50,6 +52,54 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [showReshuffleModal, setShowReshuffleModal] = useState(false);
   const [reshuffleMode, setReshuffleMode] = useState<'covers' | 'week'>('covers');
   const [reshuffleChoices, setReshuffleChoices] = useState<Record<string, string>>({});
+
+  const [aiCoverState, setAiCoverState] = useState<{
+    loading: boolean;
+    error: string | null;
+    note?: string;
+    suggestions: AiCoverSuggestion[];
+  }>({ loading: false, error: null, suggestions: [] });
+
+  const handleAskAiForCovers = async () => {
+    setAiCoverState({ loading: true, error: null, suggestions: [] });
+    try {
+      const context = buildRotaChatContext({
+        staffList,
+        holidays,
+        rota,
+        covers,
+        manualOverrides,
+        rotaStartDate,
+        selectedWeek,
+      });
+      const result = await api.suggestAiCovers(context);
+      setAiCoverState({ loading: false, error: null, note: result.note, suggestions: result.suggestions });
+    } catch (error) {
+      setAiCoverState({
+        loading: false,
+        error: error instanceof Error ? error.message : 'Could not fetch suggestions.',
+        suggestions: [],
+      });
+    }
+  };
+
+  const handleAssignAiCover = (suggestion: AiCoverSuggestion) => {
+    const absent = staffList.find((person) => person.name === suggestion.absentStaff);
+    const cover = staffList.find((person) => person.name === suggestion.coverStaff);
+    if (!absent || !cover) return;
+    onApplyOverride(suggestion.date, absent.id, {
+      staffId: cover.id,
+      shiftLabel: suggestion.shift,
+      isCover: true,
+      coverReason: 'Holiday',
+      originalStaffId: absent.id,
+      isManualOverride: true,
+    });
+    setAiCoverState((previous) => ({
+      ...previous,
+      suggestions: previous.suggestions.filter((item) => item !== suggestion),
+    }));
+  };
 
   // User management state (manager only)
   const [sysUsers, setSysUsers] = useState<(User & { created_at: string })[]>([]);
@@ -711,6 +761,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <span>Day Shift (E/L)</span>
               </div>
               <div className="legend-item">
+                <div className="legend-color shift-E-K"></div>
+                <span>Day + Kitchen (E/K)</span>
+              </div>
+              <div className="legend-item">
                 <div className="legend-color shift-ML"></div>
                 <span>Maternity Leave (ML)</span>
               </div>
@@ -1327,6 +1381,39 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </button>
             </div>
 
+            <div className="ai-covers-block" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => void handleAskAiForCovers()}
+                disabled={aiCoverState.loading}
+              >
+                {aiCoverState.loading ? '🤖 Thinking…' : '🤖 Ask AI for cover options'}
+              </button>
+              {aiCoverState.error && (
+                <p className="reshuffle-empty" style={{ color: '#dc2626' }}>{aiCoverState.error}</p>
+              )}
+              {aiCoverState.note && <p className="reshuffle-empty">{aiCoverState.note}</p>}
+              {aiCoverState.suggestions.map((suggestion) => (
+                <div key={`${suggestion.date}-${suggestion.coverStaff}`} className="reshuffle-cover-item">
+                  <div className="reshuffle-cover-heading">
+                    <strong>{suggestion.date} · {suggestion.shift}</strong>
+                    <span>
+                      {suggestion.coverStaff}
+                      {suggestion.absentStaff ? ` covers ${suggestion.absentStaff}` : ' (extra cover)'}
+                    </span>
+                  </div>
+                  <p className="reshuffle-empty">{suggestion.reason}</p>
+                  <button
+                    className="btn btn-primary"
+                    style={{ padding: '2px 10px', fontSize: '0.75rem' }}
+                    onClick={() => handleAssignAiCover(suggestion)}
+                  >
+                    Assign
+                  </button>
+                </div>
+              ))}
+            </div>
+
             {reshuffleMode === 'covers' ? (
               <div className="reshuffle-cover-list">
                 {holidayCoverItems.length === 0 ? (
@@ -1437,6 +1524,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </button>
                 <button className="btn btn-secondary" onClick={() => handleApplyOverride('E/L')}>
                   Day Shift (E/L)
+                </button>
+                <button className="btn btn-secondary" onClick={() => handleApplyOverride('E/K')}>
+                  Day + Kitchen (E/K)
                 </button>
                 <button className="btn btn-secondary" onClick={() => handleApplyOverride('N')}>
                   Night Shift (N)
@@ -1616,6 +1706,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       >
                         <option value="">Off</option>
                         <option value="E/L">E/L</option>
+                        <option value="E/K">E/K</option>
                         <option value="ML">ML</option>
                         <option value="N">N</option>
                         <option value="7/5">7/5</option>
@@ -1651,6 +1742,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         >
                           <option value="">Off</option>
                           <option value="E/L">E/L</option>
+                          <option value="E/K">E/K</option>
                           <option value="ML">ML</option>
                           <option value="N">N</option>
                           <option value="7/5">7/5</option>

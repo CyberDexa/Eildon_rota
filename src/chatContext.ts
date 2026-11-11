@@ -105,13 +105,27 @@ export function buildRotaChatContext({
   const focusDays = rota.filter((day) => day.date >= focusStart && day.date <= focusEnd);
   const focusDates = focusDays.map((day) => day.date);
 
+  // The days either side ride along in focusWeekByStaff so rest gaps and runs of
+  // consecutive days can be judged at the edges of the week instead of guessed.
+  const contextDays = [
+    ...rota.filter((day) => day.date === addDays(focusStart, -1)),
+    ...focusDays,
+    ...rota.filter((day) => day.date === addDays(focusEnd, 1)),
+  ];
+
   const focusedWeekWorking = focusDays.map((day) => ({
     date: day.date,
     working: Object.values(day.shifts)
       .filter((shift) => shift.shiftLabel && shift.shiftLabel !== 'Off' && !(shift.isCover && !shift.staffId))
       .map((shift) => {
         const person = shift.staffId ? staffById.get(shift.staffId) : undefined;
-        return `${person?.name ?? 'Unassigned'} (${shift.shiftLabel}${shift.isCover ? ', cover' : ''})`;
+        const suggested = shift.isCover && shift.coverReason === 'Holiday' && !shift.isManualOverride;
+        const tag = suggested
+          ? ', suggested cover — not yet assigned'
+          : shift.isCover
+            ? ', cover'
+            : '';
+        return `${person?.name ?? 'Unassigned'} (${shift.shiftLabel}${tag})`;
       }),
   }));
 
@@ -125,7 +139,7 @@ export function buildRotaChatContext({
   const focusWeekByStaff = staffList.map((staff) => {
     const shifts: Record<string, string> = {};
 
-    for (const day of focusDays) {
+    for (const day of contextDays) {
       const labels: string[] = [];
       const away = isOnHoliday(staff.id, day.date);
 
@@ -145,7 +159,10 @@ export function buildRotaChatContext({
 
         if (shift.isCover && shift.originalStaffId && shift.originalStaffId !== staff.id) {
           const original = staffById.get(shift.originalStaffId);
-          labels.push(`${shift.shiftLabel} (covering ${original?.name ?? 'a colleague'})`);
+          const suggested = shift.coverReason === 'Holiday' && !shift.isManualOverride;
+          labels.push(
+            `${shift.shiftLabel} (${suggested ? 'suggested cover for' : 'covering'} ${original?.name ?? 'a colleague'})`
+          );
         } else {
           labels.push(shift.shiftLabel);
         }

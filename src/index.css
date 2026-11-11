@@ -369,6 +369,13 @@ button, input, select, textarea {
   border: 1px solid var(--shift-day-border);
 }
 
+.shift-E-K {
+  background: var(--shift-day-bg);
+  color: var(--shift-day);
+  border: 1px solid var(--shift-day-border);
+  border-left: 3px solid var(--shift-kitchen);
+}
+
 .shift-ML, .shift-M-L {
   background: var(--shift-holiday-bg);
   color: var(--shift-holiday);
@@ -1298,7 +1305,8 @@ td.drop-target {
   }
 
   /* Keep shift colours readable in print */
-  .shift-E-L            { background: #fef9c3 !important; color: #713f12 !important; border-color: #fde68a !important; }
+  .shift-E-L,
+  .shift-E-K            { background: #fef9c3 !important; color: #713f12 !important; border-color: #fde68a !important; }
   .shift-ML, .shift-M-L { background: #fce7f3 !important; color: #831843 !important; border-color: #fbcfe8 !important; }
   .shift-N              { background: #dbeafe !important; color: #1e3a8a !important; border-color: #bfdbfe !important; }
   .shift-7-5            { background: #ede9fe !important; color: #4c1d95 !important; border-color: #ddd6fe !important; }
