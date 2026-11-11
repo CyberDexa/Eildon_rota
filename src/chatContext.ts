@@ -111,7 +111,13 @@ export function buildRotaChatContext({
       .filter((shift) => shift.shiftLabel && shift.shiftLabel !== 'Off' && !(shift.isCover && !shift.staffId))
       .map((shift) => {
         const person = shift.staffId ? staffById.get(shift.staffId) : undefined;
-        return `${person?.name ?? 'Unassigned'} (${shift.shiftLabel}${shift.isCover ? ', cover' : ''})`;
+        const suggested = shift.isCover && shift.coverReason === 'Holiday' && !shift.isManualOverride;
+        const tag = suggested
+          ? ', suggested cover — not yet assigned'
+          : shift.isCover
+            ? ', cover'
+            : '';
+        return `${person?.name ?? 'Unassigned'} (${shift.shiftLabel}${tag})`;
       }),
   }));
 
@@ -145,7 +151,10 @@ export function buildRotaChatContext({
 
         if (shift.isCover && shift.originalStaffId && shift.originalStaffId !== staff.id) {
           const original = staffById.get(shift.originalStaffId);
-          labels.push(`${shift.shiftLabel} (covering ${original?.name ?? 'a colleague'})`);
+          const suggested = shift.coverReason === 'Holiday' && !shift.isManualOverride;
+          labels.push(
+            `${shift.shiftLabel} (${suggested ? 'suggested cover for' : 'covering'} ${original?.name ?? 'a colleague'})`
+          );
         } else {
           labels.push(shift.shiftLabel);
         }

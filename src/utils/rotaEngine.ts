@@ -355,6 +355,10 @@ export function generateRota(
     Object.values(dayShifts).forEach((s) => {
       if (!s.staffId) return; // Unassigned shift does not count
 
+      // A holiday cover proposed by the engine is only a suggestion. It counts
+      // toward floor staffing once a manager has assigned it on the rota.
+      if (s.isCover && s.coverReason === 'Holiday' && !s.isManualOverride) return;
+
       const def = SHIFT_DEFINITIONS[s.shiftLabel];
       if (!def) return;
 
